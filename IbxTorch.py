@@ -30,11 +30,12 @@ def convert_to_yolo(jsfile, img_size, outdir):
     for frame in jsfile:
         print_buffer = []
 
-        # For each bounding box
+        # For each object on a frame
         for obj in frame['objects']:
             try:
                 class_id = class_name_to_id_mapping[obj["title"]]
                 b = obj['bbox']
+                #be sure, that no low-confidence objects will be present in our training set
                 if not obj['classifications'] or obj['classifications'][0]['answers'][0]['value'] != 'low-confidence':
                     # Transform the bbox coordinates as per the format required by YOLO v5
                     b_center_x = (b["left"] + b["width"]) / 2
@@ -52,7 +53,7 @@ def convert_to_yolo(jsfile, img_size, outdir):
                     # Write the bbox details to the file
                     print_buffer.append(
                         "{} {:.3f} {:.3f} {:.3f} {:.3f}".format(class_id, b_center_x, b_center_y, b_width, b_height))
-            except KeyError:
+            except KeyError: #made to ommit uncategorized and wrong class names
                 pass
         # print("Invalid Class or uncategorized")
 
