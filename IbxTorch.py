@@ -38,8 +38,8 @@ def convert_to_yolo(jsfile, img_size, outdir):
                 #be sure, that no low-confidence objects will be present in our training set
                 if not obj['classifications'] or obj['classifications'][0]['answers'][0]['value'] != 'low-confidence':
                     # Transform the bbox coordinates as per the format required by YOLO v5
-                    b_center_x = (b["left"] + b["width"]) / 2
-                    b_center_y = (b["top"] + b["height"]) / 2
+                    b_center_x = b["left"] + b["width"]/ 2
+                    b_center_y = b["top"] + b["height"]/ 2
                     b_width = b["width"]
                     b_height = b["height"]
 
