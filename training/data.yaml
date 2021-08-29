@@ -1,0 +1,20 @@
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+# COCO128 dataset https://www.kaggle.com/ultralytics/coco128 (first 128 images from COCO train2017)
+# Example usage: python train.py --data coco128.yaml
+# parent
+# ├── yolov5
+# └── datasets
+#     └── coco128  ← downloads here
+
+
+path: ../datasets  # dataset root dir
+train: images  # train images (relative to 'path') 128 images
+val: images  # val images (relative to 'path') 128 images
+test: test # test images (optional)
+
+# Classes
+nc: 8  # number of classes
+names: ["ant", "ant-head", "trophallaxis-ant", "larva", "trophallaxis-larva", "food noise", "pupa", "barcode"]  # class names
+
+# Download script/URL (optional)
+#download: https://github.com/PikachuDeveloper/yolo_data/blob/main/coco128.zip
