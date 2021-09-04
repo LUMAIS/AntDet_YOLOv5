@@ -147,4 +147,3 @@ if __name__ == '__main__':
             count_salary(annotations, args.keyframed_objects)
         else:
             convert_to_yolo(annotations, img_size, args.outp_dir)
-    
