@@ -1,7 +1,5 @@
-import os
-import numpy as np
-from re import findall
 import json
+import os
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, SUPPRESS
 
 # Dictionary that maps class names to IDs
