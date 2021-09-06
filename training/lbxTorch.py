@@ -68,6 +68,7 @@ def convert_to_yolo(jsfile, img_size, filename, outdir):
         framenum = str(frame["frameNumber"])
         # Save the annotation to disk
         print("\n".join(print_buffer), file=open('{}_{}.txt'.format(filename, framenum), "w"))
+    os.chdir(cwd)
 
 #counts number of modified objects on frames, which were listed in the keyframes
 def count_objects(jsfile, keyframes, obj_cost):
@@ -125,12 +126,14 @@ if __name__ == '__main__':
                         help='Path for json files')
     # parser.add_argument('-vid', '--vid-path', default=None,
     #                     help='Path for the video')
+    parser.add_argument('-pname', '--picname', nargs='+',
+                        help='Name for outcoming label files')
 
     #create group with mutually exclusive elements: framesize and keyframe-obj
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-s', '--frame-size', default=None, type=str,
+    group.add_argument('-s', '--frame-size', default=None, type=str, nargs='+',
                        help='The size format is WxH, for example: 800x600')
-    parser.add_argument('-o', '--outp-dir', type = str,
+    parser.add_argument('-o', '--outp-dir', type=str,
                         default=os.path.join(os.getcwd(), 'labels'),
                         help='Output directory for the label files')
 
@@ -140,13 +143,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    for filepath in args.filepath:
+    for i, filepath in enumerate(args.filepath):
         with open(filepath) as jsonFile:
             annotations = json.load(jsonFile)
 
         if args.keyframed_objects:
             count_objects(annotations, args.keyframed_objects, args.object_cost)
         else:
-            fm_size = tuple(map(lambda y: int(y), args.frame_size.split('x')))
+            fm_size = tuple(map(lambda y: int(y), args.frame_size[i].split('x')))
             filename = os.path.split(filepath)[1][:-5]
-            convert_to_yolo(annotations, fm_size, filename, args.outp_dir)
+            convert_to_yolo(annotations, fm_size, args.picname[i], args.outp_dir)
