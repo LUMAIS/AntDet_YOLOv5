@@ -37,46 +37,49 @@ def convert_to_yolo(jsfile, img_size, fstr, filename, outdir):
     cwd = os.getcwd()
     os.chdir(os.path.join(cwd, outdir))
 
-    for frame in jsfile:
-        print_buffer = []
+    framelst = strparse(fstr)
 
-        # For each bounding box
-        for obj in frame['objects']:
-            try:
-                class_id = class_name_to_id_mapping[obj["title"]]
-                b = obj['bbox']
-                flag = 1  #used to check if object has an attribute = low-confidence
-                if obj['classifications']:
-                    for cl in obj['classifications']:
-                        for answer in cl['answers']:
-                            flag *= 0 if answer['value'] == 'low-confidence' else 1
-                if not obj['classifications'] or flag:
-                    # Transform the bbox coordinates as per the format required by YOLO v5
-                    b_center_x = b["left"] + b["width"] / 2
-                    b_center_y = b["top"] + b["height"] / 2
-                    b_width = b["width"]
-                    b_height = b["height"]
+    for [beginning, ending] in framelst:
+        ending = len(jsfile) if ending == '$' else ending
 
-                    # Normalise the coordinates by the dimensions of the image
-                    image_w, image_h = img_size
-                    b_center_x /= image_w
-                    b_center_y /= image_h
-                    b_width /= image_w
-                    b_height /= image_h
+        try:
+            for i in range(int(beginning) - 1, int(ending)):
+                frame = jsfile[i]
+                print_buffer = []
 
-                    # Write the bbox details to the file
-                    print_buffer.append(
-                        "{} {:.3f} {:.3f} {:.3f} {:.3f}".format(class_id, b_center_x, b_center_y, b_width, b_height))
-                else:
-                    # print(obj)
-                    pass
-            except KeyError:
-                pass
-        # print("Invalid Class or uncategorized")
+                # For each bounding box
+                for obj in frame['objects']:
+                    if class_name_to_id_mapping.get(obj["title"]):
+                        class_id = class_name_to_id_mapping[obj["title"]]
+                        b = obj['bbox']
+                        flag = 1  #used to check if object has an attribute = low-confidence
+                        if obj['classifications']:
+                            for cl in obj['classifications']:
+                                for answer in cl['answers']:
+                                    flag *= 0 if answer['value'] == 'low-confidence' else 1
+                        if not obj['classifications'] or flag:
+                            # Transform the bbox coordinates as per the format required by YOLO v5
+                            b_center_x = b["left"] + b["width"] / 2
+                            b_center_y = b["top"] + b["height"] / 2
+                            b_width = b["width"]
+                            b_height = b["height"]
 
-        framenum = str(frame["frameNumber"])
-        # Save the annotation to disk
-        print("\n".join(print_buffer), file=open('{}_{}.txt'.format(filename, framenum), "w"))
+                            # Normalise the coordinates by the dimensions of the image
+                            image_w, image_h = img_size
+                            b_center_x /= image_w
+                            b_center_y /= image_h
+                            b_width /= image_w
+                            b_height /= image_h
+
+                            # Write the bbox details to the file
+                            print_buffer.append(
+                                "{} {:.3f} {:.3f} {:.3f} {:.3f}".format(class_id, b_center_x, b_center_y, b_width, b_height))
+                # print("Invalid Class or uncategorized")
+                framenum = str(frame["frameNumber"])
+                # Save the annotation to disk
+                print("\n".join(print_buffer), file=open('{}_{}.txt'.format(filename, framenum), "w"))
+        except IndexError:
+            print("WARNING: Invalid frame's range. Number of edited frames is {}".format(len(jsfile)))
 
 
 #counts number of modified objects on frames, which were listed in the keyframes
@@ -102,17 +105,18 @@ def count_objects(jsfile, keyframes, obj_cost):
     for [beginning, ending] in framelst:
         ending = len(jsfile) if ending == '$' else ending
 
-        for i in range(int(beginning) - 1, int(ending)):
-            frame = jsfile[i]
-            print_buffer.append(frame["frameNumber"])
+        try:
+            for i in range(int(beginning) - 1, int(ending)):
+                frame = jsfile[i]
+                print_buffer.append(frame["frameNumber"])
 
-            # For each obj in frame
-            for obj in frame['objects']:
-                if obj['keyframe']: #if true, than changes where made
-                    try:
-                        cls_count[obj["title"]] += 1
-                    except KeyError:
-                        pass
+                # For each obj in frame
+                for obj in frame['objects']:
+                    if obj['keyframe']: #if true, than changes where made
+                        if cls_count.get(obj['title']):
+                            cls_count[obj["title"]] += 1
+        except IndexError:
+            print("WARNING: Invalid frame's range. Number of edited frames is {}".format(len(jsfile)))
 
     print_buffer.sort()
     print("Frames taken to account: ", print_buffer)
@@ -141,7 +145,7 @@ if __name__ == '__main__':
                         help='Output directory for the label files')
 
     parser.add_argument('--object-cost', help=SUPPRESS, default=0.03, type=float)
-    parser.add_argument('-f', '--frames', type=str,
+    parser.add_argument('-f', '--frames', type=str, default='1-$',
                         help='Range of frames')
 
     parser.add_argument('-k', '--keyframed-objects', default=False, type=bool,
@@ -156,6 +160,11 @@ if __name__ == '__main__':
         if args.keyframed_objects:
             count_objects(annotations, args.frames, args.object_cost)
         else:
-            fm_size = tuple(map(lambda y: int(y), args.frame_size.split('x')))
-            filename = os.path.split(filepath)[1][:-5]
-            convert_to_yolo(annotations, fm_size, args.frames, filename, args.outp_dir)
+            try:
+                fm_size = tuple(map(lambda y: int(y), args.frame_size.split('x')))
+                filename = os.path.split(filepath)[1][:-5]
+                convert_to_yolo(annotations, fm_size, args.frames, filename, args.outp_dir)
+
+            except AttributeError:
+                print("AttributeError: can't convert annotations, unspecified argument value -s [FRAME_SIZE]." +\
+                      "\nTo count annotations in frame range specify -k [keyframed-objects] as True.")
