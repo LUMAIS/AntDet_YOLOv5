@@ -162,7 +162,7 @@ if __name__ == '__main__':
         else:
             try:
                 fm_size = tuple(map(lambda y: int(y), args.frame_size.split('x')))
-                filename = os.path.split(filepath)[1][:-5]
+                filename = os.path.split(filepath)[1].rstrip('.json')
                 convert_to_yolo(annotations, fm_size, args.frames, filename, args.outp_dir)
 
             except AttributeError:
