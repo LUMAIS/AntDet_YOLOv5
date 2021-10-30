@@ -8,10 +8,13 @@ from PIL import Image, ImageDraw
 def roi_processing(vidpath, color, rois, filename):
     """
 
-    :param vidpath: path to data with filename
-    :param rois: list of strings LEFT,TOP,WIDTH,HEIGHT [;SHAPE=rect][^FRAME_START=0][!FRAME_FINISH=LAST_FRAME]]
-    :param filename: name for a new video
-    :return:
+    Args:
+        vidpath (str): path to data with filename
+        color (str): color of a background written in English (red, blue, etc.)
+        rois (str): list of strings LEFT,TOP,WIDTH,HEIGHT [;SHAPE=rect][^FRAME_START=0][!FRAME_FINISH=LAST_FRAME]]
+        filename (str): name for a new video
+    Returns:
+        0 if process ended with errors
     """
     vid = cv2.VideoCapture(vidpath)
     total = int(vid.get(cv2.CAP_PROP_FRAME_COUNT)) #number of frames in a video
@@ -82,10 +85,10 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--vid', type=str, help='path to video')
 
     parser.add_argument('-c', '--color', type=str, default="black",
-                        help='color in string variant like red, blue, pink, ...')
+                        help='color written as a word like pink, aqua, etc.')
     parser.add_argument('-r', '--r', type=str, default=[], action='append',
                         help='LEFT,TOP,WIDTH,HEIGHT[;SHAPE=rect][^FRAME_START=1][!FRAME_FINISH=LAST_FRAME]]')
     parser.add_argument('-f', '--filename', type=str, help='name for a processed video')
-    opt = parser.parse_args()#'-v E:\\100testimages.mp4 -c gold -r 700,800,300,200;ellipse!20 -r 500,400,320,240^18!28 -f new.mp4'.split())
+    opt = parser.parse_args()#'-v E:\\100testimages.mp4 -c aqua -r 700,800,300,200;ellipse!20 -r 500,400,320,240^18!28 -f new.mp4'.split())
 
     roi_processing(*vars(opt).values())

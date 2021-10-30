@@ -2,12 +2,11 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import cv2
 import numpy as np
 from json import load
-# import math
 from typing import Dict, Any
 from IPython.display import clear_output
 from matplotlib import pyplot as plt
 
-#code taken from StackOverflow
+
 def dashline(img, pt1, pt2, color, thickness=1, style='dotted', gap=20):
     dist = ((pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2) ** .5
     pts = []
@@ -22,7 +21,7 @@ def dashline(img, pt1, pt2, color, thickness=1, style='dotted', gap=20):
         for p in pts:
             cv2.circle(img, p, thickness, color, -1)
     else:
-        s = pts[0]
+        # s = pts[0]
         e = pts[0]
         i = 0
         for p in pts:
@@ -34,7 +33,7 @@ def dashline(img, pt1, pt2, color, thickness=1, style='dotted', gap=20):
 
 
 def dashpoly(img, pts, color, thickness=1, style='dotted', ):
-    s = pts[0]
+    # s = pts[0]
     e = pts[0]
     pts.append(pts.pop(0))
     for p in pts:
