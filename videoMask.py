@@ -90,6 +90,6 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--r', type=str, default=[], action='append',
                         help='LEFT,TOP,WIDTH,HEIGHT[;SHAPE=rect][^FRAME_START=1][!FRAME_FINISH=LAST_FRAME]]')
     parser.add_argument('-f', '--filename', type=str, help='name for a processed video')
-    opt = parser.parse_args('-v E:\\100testimages.mp4 -c orange -r 700,800,300,200;ellipse!20 -r 500,400,320,240^18!28 -f new.mp4'.split())
+    opt = parser.parse_args()#'-v E:\\100testimages.mp4 -c orange -r 700,800,300,200;ellipse!20 -r 500,400,320,240^18!28 -f new.mp4'.split())
 
     roi_processing(*vars(opt).values())
