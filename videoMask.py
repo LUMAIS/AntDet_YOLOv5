@@ -2,8 +2,9 @@ from re import findall
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import cv2
 import numpy as np
-from colour import Color
 from PIL import Image, ImageDraw
+import matplotlib._color_data as mcd
+
 
 def roi_processing(vidpath, color, rois, filename):
     """
@@ -62,17 +63,17 @@ def roi_processing(vidpath, color, rois, filename):
     vid = cv2.VideoCapture(vidpath)
     writer = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*'mp4v'),
                              vid.get(cv2.CAP_PROP_FPS), frame.shape[:2])
-    color = Color(color)
-    color = (color.get_blue() * 255, color.get_green() * 255, color.get_red()*255)
-    bg = Image.new('RGB', frame.shape[:2], tuple(map(int, color)))
+
+    h = mcd.CSS4_COLORS[color] #get hex code for a background color by name
+    bg = Image.new('RGB', frame.shape[:2], h)
     for mask in masks:
         _, frame = vid.read(cv2.IMREAD_UNCHANGED)
         if mask == Image.new("L", frame.shape[:2], 0):
-            masked = frame
+            masked = frame[:, :, ::-1]
         else:
             masked = bg.copy()
             masked.paste(Image.fromarray(frame), (0, 0), mask)
-            masked = np.array(masked)
+            masked = np.array(masked)[:, :, ::-1]
         writer.write(masked)
     vid.release()
 
@@ -89,6 +90,6 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--r', type=str, default=[], action='append',
                         help='LEFT,TOP,WIDTH,HEIGHT[;SHAPE=rect][^FRAME_START=1][!FRAME_FINISH=LAST_FRAME]]')
     parser.add_argument('-f', '--filename', type=str, help='name for a processed video')
-    opt = parser.parse_args()#'-v E:\\100testimages.mp4 -c aqua -r 700,800,300,200;ellipse!20 -r 500,400,320,240^18!28 -f new.mp4'.split())
+    opt = parser.parse_args('-v E:\\100testimages.mp4 -c orange -r 700,800,300,200;ellipse!20 -r 500,400,320,240^18!28 -f new.mp4'.split())
 
     roi_processing(*vars(opt).values())
