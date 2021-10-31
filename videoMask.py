@@ -69,7 +69,7 @@ def roi_processing(vidpath, color, rois, filename):
     for mask in masks:
         _, frame = vid.read(cv2.IMREAD_UNCHANGED)
         if mask == Image.new("L", frame.shape[:2], 0):
-            masked = frame[:, :, ::-1]
+            masked = frame
         else:
             masked = bg.copy()
             masked.paste(Image.fromarray(frame), (0, 0), mask)

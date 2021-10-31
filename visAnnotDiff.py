@@ -109,7 +109,7 @@ def main(file1: str, file2: str, vidpath: str, fframe: int = 0):
     vid = cv2.VideoCapture(vidpath)
     total = fframe if fframe else int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
     _, frame = vid.read()
-    #frame = frame[:, :, ::-1]
+    frame = frame[:, :, ::-1]
     for frameNum in range(1, total + 1):
         for feature_id in revFile[frameNum]:
             try:
@@ -127,7 +127,7 @@ def main(file1: str, file2: str, vidpath: str, fframe: int = 0):
         success, frame = vid.read()
         if success:
             clear_output(wait=True)
-        #frame = frame[:, :, ::-1]
+        frame = frame[:, :, ::-1]
     vid.release()
 
 
