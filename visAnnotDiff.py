@@ -1,10 +1,10 @@
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-import cv2
-import numpy as np
 from json import load
 from typing import Dict, Any
-from IPython.display import clear_output
-from matplotlib import pyplot as plt
+from IbxTorch import count_salary
+
+import cv2
+import numpy as np
 
 
 def dashline(img, pt1, pt2, color, thickness=1, style='dotted', gap=20):
@@ -47,14 +47,14 @@ def dashrect(img, pt1, pt2, color, thickness=4, style='dotted'):
     dashpoly(img, pts, color, thickness, style)
 
 
-def visualize_bbox(image: np.ndarray, tool: Dict[str, Any], dash: bool = False) -> np.ndarray:
+def visualize_bbox(image: np.ndarray, tool: Dict[str, Any], style: str = '') -> np.ndarray:
     """
     Draws a bounding box on an image
 
     Args:
         image (np.ndarray): image to draw a bounding box onto
         tool (Dict[str,any]): Dict response from the export
-        dash (bool): False if rectangle without dashes have to be drawn
+        style (str): False if rectangle without dashes have to be drawn
     Returns:
         image with a bounding box drawn on it.
     """
@@ -63,11 +63,12 @@ def visualize_bbox(image: np.ndarray, tool: Dict[str, Any], dash: bool = False) 
            int(tool[0]["top"] + tool[0]["height"]))
     h = tool[1].lstrip('#')
     color = tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
-    if dash:
-        dashrect(image, start, end, color)#, style='dashed')
+    if style:
+        dashrect(image, start, end, color, style=style)
     else:
         cv2.rectangle(image, start, end, color, 4)
     return image
+
 
 def shorten_file(jsFile: str) -> Dict[str, list]:
     """
@@ -103,32 +104,48 @@ def main(file1: str, file2: str, vidpath: str, fframe: int = 0):
         revFile = load(f2)
         f2.close()
 
+    totalel = count_salary(orFile, '1-' + str(len(orFile)))
     orFile = shorten_file(orFile)
     revFile = shorten_file(revFile)
 
     vid = cv2.VideoCapture(vidpath)
     total = fframe if fframe else int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    # totalel = count_salary(orFile, '1-' + str(len(orFile)))
+    totcorected = 0
     _, frame = vid.read()
     frame = frame[:, :, ::-1]
     for frameNum in range(1, total + 1):
+        show = False
         for feature_id in revFile[frameNum]:
             try:
                 if orFile[frameNum][feature_id] != revFile[frameNum][feature_id]:
+                    totcorected += 1
+                    show = True
                     frame = visualize_bbox(frame.astype(np.uint8), orFile[frameNum][feature_id])
-                    frame = visualize_bbox(frame.astype(np.uint8), revFile[frameNum][feature_id], dash=True)
+                    frame = visualize_bbox(frame.astype(np.uint8), revFile[frameNum][feature_id], style='dotted')
             except KeyError:
-                frame = visualize_bbox(frame.astype(np.uint8), revFile[frameNum][feature_id], dash=True)
-        plt.figure(1)
-        plt.imshow(frame)
-        plt.title('frameNumber ' + str(frameNum + 1))
-        plt.pause(0.4)
-        plt.clf()
+                totcorected += 1
+                show = True
+                frame = visualize_bbox(frame.astype(np.uint8), revFile[frameNum][feature_id], style='dashed')
+        if show:
+            wTitle = 'frameNumber ' + str(frameNum)
+            cv2.namedWindow(wTitle, cv2.WINDOW_NORMAL)
+            h, w = frame.shape[:2]
+            rfont = w / 600
+            cv2.resizeWindow(wTitle, 600, int(h / rfont))
+            cv2.imshow(wTitle, frame[:, :, ::-1])
+            key = 0
+            while key != 32:  # space
+                key = cv2.waitKey(1) & 0xFF  # esc
+                if key == 27:
+                    return 0
+            cv2.destroyAllWindows()
 
         success, frame = vid.read()
-        if success:
-            clear_output(wait=True)
         frame = frame[:, :, ::-1]
     vid.release()
+    print("Total number of corrected elements is ", totcorected)
 
 
 if __name__ == '__main__':
@@ -140,6 +157,6 @@ if __name__ == '__main__':
 
     parser.add_argument('-vid', '--v', type=str, help='path to a video')
     parser.add_argument('-fframe', '--fframe', type=int, default=0, help='Final annotated frame')
-    opt = parser.parse_args()#'-vid E:\\100testimages.mp4 -orf E:\\original.json -ref E:\\reviewed.json -fframe 9'.split())
+    opt = parser.parse_args('-vid E:\\3.mp4 -orf E:\\original.json -ref E:\\reviewed.json -fframe 9'.split())
 
     main(*vars(opt).values())
