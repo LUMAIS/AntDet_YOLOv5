@@ -83,13 +83,13 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='Document Taxonomy Builder.',
                             formatter_class=ArgumentDefaultsHelpFormatter,
                             conflict_handler='resolve')
-    parser.add_argument('-v', '--vid', type=str, help='path to video')
+    parser.add_argument('-v', '--vidpath', type=str, help='path to video')
 
     parser.add_argument('-c', '--color', type=str, default="black",
                         help='color written as a word like pink, aqua, etc.')
-    parser.add_argument('-r', '--r', type=str, default=[], action='append',
+    parser.add_argument('-r', '--rois', type=str, default=[], action='append',
                         help='LEFT,TOP,WIDTH,HEIGHT[;SHAPE=rect][^FRAME_START=1][!FRAME_FINISH=LAST_FRAME]]')
     parser.add_argument('-f', '--filename', type=str, help='name for a processed video')
     opt = parser.parse_args()#'-v E:\\100testimages.mp4 -c orange -r 700,800,300,200;ellipse!20 -r 500,400,320,240^18!28 -f new.mp4'.split())
 
-    roi_processing(*vars(opt).values())
+    roi_processing(**vars(opt))
