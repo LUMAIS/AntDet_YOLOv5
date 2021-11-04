@@ -25,11 +25,12 @@ def strparse(fstr):
 # Convert the frame dict to the required yolo format and write it to disk
 def convert_to_yolo(jsfile, img_size, fstr, filename, outdir):
     """
-    jsfile: list from loaded json file
-    img_size: tuple = (width, height) of the image/frame
-    fstr: string of intervals <n1>-<n2>,<n3>-<n4>,<n5>...
-    filename: future name of each txt file will take it as a beginning
-    outdir: output directory for saving txt files
+    Args:
+        jsfile (list): list from loaded json file
+        img_size (tuple): = (width, height) of the image/frame
+        fstr (str): string of intervals <n1>-<n2>,<n3>-<n4>,<n5>...
+        filename (str): future name of each txt file will take it as a beginning
+        outdir (str): output directory for saving txt files
     """
     # go to an output directory
     if not os.path.isdir(outdir):
@@ -112,8 +113,8 @@ def count_objects(jsfile, keyframes, obj_cost):
 
                 # For each obj in frame
                 for obj in frame['objects']:
-                    if obj['keyframe']: #if true, than changes where made
-                        if cls_count.get(obj['title']):
+                    if obj['keyframe']: #true, if was changed
+                        if obj['title'] in cls_count:
                             cls_count[obj["title"]] += 1
         except IndexError:
             print("WARNING: Invalid frame's range. Number of edited frames is {}".format(len(jsfile)))
@@ -123,7 +124,8 @@ def count_objects(jsfile, keyframes, obj_cost):
     for key, value in cls_count.items():
         sum += value
         print("{}: {}".format(key, value))
-    print("Total: {} \nCost: ${}".format(sum, sum*obj_cost))
+    if obj_cost:
+        print("Total: {} \nCost: ${}".format(sum, sum*obj_cost))
     return sum
 
 
