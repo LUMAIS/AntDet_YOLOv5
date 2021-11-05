@@ -58,7 +58,7 @@ def dashrect(img: np.ndarray, pt1: tuple, pt2: tuple,
     dashpoly(img, pts, color, thickness, style)
 
 
-def visualize_bbox(image: np.ndarray, tool: Dict[str, Any], thickness: int = 2, style: str = '') -> np.ndarray:
+def visualize_bbox(image: np.ndarray, tool: Dict[str, Any], style: str = '') -> np.ndarray:
     """
     Draws a bounding box on an image
 
@@ -75,9 +75,9 @@ def visualize_bbox(image: np.ndarray, tool: Dict[str, Any], thickness: int = 2, 
     h = tool[1].lstrip('#')
     color = tuple(int(h[i:i + 2], 16) for i in (4, 2, 0)) #BGR
     if style:
-        dashrect(image, start, end, color, thickness, style)
+        dashrect(image, start, end, color, style=style)
     else:
-        cv2.rectangle(image, start, end, color, thickness)
+        cv2.rectangle(image, start, end, color, 4)
     return image
 
 
@@ -101,7 +101,7 @@ def shorten_file(jsFile: str) -> Dict[str, list]:
     return annotDict
 
 
-def main(file1: str, file2: str, vidpath: str, w0: float = 2, keyframes: str = '1-$') -> int:
+def main(file1: str, file2: str, vidpath: str, keyframes: str = '1-$') -> int:
     """
     If vidpath is given, draws annotation difference between given files.
 
@@ -109,7 +109,6 @@ def main(file1: str, file2: str, vidpath: str, w0: float = 2, keyframes: str = '
         file1 (str): path to annotation file before corrections
         file2 (str): path to annotation file after corrections
         vidpath (str): path to data with filename
-        w0 (float): demonstration scale coefficient
         keyframes (str): intervals of frames that should be taken into account
     """
     with open(file1) as f1:
@@ -119,9 +118,8 @@ def main(file1: str, file2: str, vidpath: str, w0: float = 2, keyframes: str = '
         revFile = load(f2)
         f2.close()
 
-    totalel = count_objects(orFile, keyframes, 0)
-    total = len(orFile)
-    print("Total number of annotated objects is ", totalel)
+    total = count_objects(orFile, keyframes, 0)
+    print("Total number of annotated objects is ", total)
     orFile = shorten_file(orFile)
     revFile = shorten_file(revFile)
 
@@ -157,7 +155,8 @@ def main(file1: str, file2: str, vidpath: str, w0: float = 2, keyframes: str = '
                 wTitle = 'frameNumber ' + str(frameNum)
                 cv2.namedWindow(wTitle, cv2.WINDOW_NORMAL)
                 h, w = frame.shape[:2]
-                cv2.resizeWindow(wTitle, int(w / w0), int(h / w0))
+                rfont = w / 600
+                cv2.resizeWindow(wTitle, 600, int(h / rfont))
                 cv2.imshow(wTitle, frame)
                 key = 0
                 while key != 32:  # space
@@ -183,7 +182,6 @@ if __name__ == '__main__':
 
     parser.add_argument('-vid', '--vidpath', type=str, default ='', help='path to a video')
     parser.add_argument('-fframe', '--keyframes', type=str, help='intervals of frames that should be taken into account')
-    opt = parser.parse_args() #'-orf E:\\work\\original_3-38_3-52.json -ref E:\\work\\review_ind.json --keyframes 1-$'.split())
-    #-vid E:\\work\\3-38_3-52.mp4
+    opt = parser.parse_args() #'-vid E:\\3.mp4 -orf E:\\original.json -ref E:\\reviewed.json --keyframes 1-7,9-11'.split())
 
     print("Total number of corrected elements is ", main(**vars(opt)))
