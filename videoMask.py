@@ -113,6 +113,6 @@ if __name__ == '__main__':
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-c', '--color', type=str, help='color written as a word like pink, aqua, etc.')
     group.add_argument('-rand', help='True if background needs to be randomly colored')
-    opt = parser.parse_args('-v E:\\work\\7-02_7-09.mp4 -r 700,800,300,200;ellipse^30  -r 500,400,320,240^5!18 -f new.mp4'.split())
+    opt = parser.parse_args()
 
     roi_processing(**vars(opt))
