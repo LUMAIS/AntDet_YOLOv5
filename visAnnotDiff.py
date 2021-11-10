@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+:Description: Evaluation and visualization script for annotation review.
+
+:Authors: (c) Valentyna Pryhodiuk <vpryhodiuk@lumais.com>
+:Date: 2020-11-04
+"""
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from json import load
 from typing import Dict, Any
@@ -101,20 +109,20 @@ def shorten_file(jsFile: str) -> Dict[str, list]:
     return annotDict
 
 
-def main(file1: str, file2: str, vidpath: str, scale: float = 2, keyframes: str = '1-$') -> int:
+def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview: str = None, keyframes: str = '1-$') -> int:
     """
-    If vidpath is given, draws annotation difference between given files.
+    If video is given, draws annotation difference between given files.
 
     Args:
-        file1 (str): path to annotation file before corrections
-        file2 (str): path to annotation file after corrections
-        vidpath (str): path to data with filename
+        annotated (str): path to annotation file before corrections
+        reviewed (str): path to annotation file after corrections
+        video (str): path to data with filename
         keyframes (str): intervals of frames that should be taken into account
     """
-    with open(file1) as f1:
+    with open(annotated) as f1:
         orFile = load(f1)
         f1.close()
-    with open(file2) as f2:
+    with open(reviewed) as f2:
         revFile = load(f2)
         f2.close()
 
@@ -124,8 +132,14 @@ def main(file1: str, file2: str, vidpath: str, scale: float = 2, keyframes: str 
     orFile = shorten_file(orFile)
     revFile = shorten_file(revFile)
 
-    if vidpath:
-        vid = cv2.VideoCapture(vidpath)
+    writer = None
+    if video:
+        vid = cv2.VideoCapture(video)
+        if vidreview is not None:
+            _, frame = vid.read()
+            height, width = frame.shape[:2]
+            writer = cv2.VideoWriter(vidreview, cv2.VideoWriter_fourcc(*'mp4v'),
+                vid.get(cv2.CAP_PROP_FPS), (width, height))
 
     totcorected = 0
     framelst = strparse(keyframes)
@@ -133,7 +147,7 @@ def main(file1: str, file2: str, vidpath: str, scale: float = 2, keyframes: str 
     for [beginning, ending] in framelst:
         ending = total if ending == '$' else ending
 
-        if vidpath:
+        if video:
             vid.set(cv2.CAP_PROP_POS_FRAMES, int(beginning))
             _, frame = vid.read()
         else:
@@ -144,15 +158,17 @@ def main(file1: str, file2: str, vidpath: str, scale: float = 2, keyframes: str 
             for feature_id in revFile[frameNum]:
                 try:
                     if orFile[frameNum][feature_id] != revFile[frameNum][feature_id]:
-                        show = vidpath
+                        show = video
                         totcorected += 1
                         frame = visualize_bbox(frame, orFile[frameNum][feature_id])
                         frame = visualize_bbox(frame, revFile[frameNum][feature_id], style='dotted')
                 except KeyError:
                     totcorected += 1
-                    show = vidpath
-                    frame = visualize_bbox(frame.astype(np.uint8), revFile[frameNum][feature_id], style='dashed')
-            if show:
+                    show = video
+                    frame = visualize_bbox(frame, revFile[frameNum][feature_id], style='dashed')
+            if writer is not None:
+                writer.write(frame)
+            elif show:
                 wTitle = 'frameNumber ' + str(frameNum)
                 cv2.namedWindow(wTitle, cv2.WINDOW_NORMAL)
                 h, w = frame.shape[:2]
@@ -165,10 +181,12 @@ def main(file1: str, file2: str, vidpath: str, scale: float = 2, keyframes: str 
                         return 0
                 cv2.destroyAllWindows()
 
-            if vidpath:
+            if video:
                 _, frame = vid.read()
                 # frame = frame[:, :, ::-1]
-    if vidpath:
+    if writer is not None:
+        writer.release()
+    if video:
         vid.release()
     return totcorected
 
@@ -177,11 +195,13 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='Document Taxonomy Builder.',
                             formatter_class=ArgumentDefaultsHelpFormatter,
                             conflict_handler='resolve')
-    parser.add_argument('-orf', '--file1', type=str, help='path to a non corrected jsfile')
-    parser.add_argument('-ref', '--file2', type=str, help='path to a reviewed corrected jsfile')
+    parser.add_argument('-a', '--annotated', type=str, help='Path to the JSON file of original annotations')
+    parser.add_argument('-r', '--reviewed', type=str, help='Path to the JSON file of reviewed annotations')
 
-    parser.add_argument('-vid', '--vidpath', type=str, default ='', help='path to a video')
-    parser.add_argument('-fframe', '--keyframes', type=str, help='intervals of frames that should be taken into account')
-    opt = parser.parse_args() #'-vid E:\\work\\3-38_3-52.mp4 -orf E:\\work\\original_3-38_3-52.json -ref E:\\work\\review_ind.json --keyframes 1-7,9-11'.split())
+    parser.add_argument('-v', '--video', type=str, default ='', help='Path to the original video')
+    parser.add_argument('-o', '--output-video', dest='vidreview', type=str, help='Output video instead of the interactive analysis')
+    parser.add_argument('-k', '--keyframes', type=str, default='1-$', help='Target intervals of frames if necessary')
+    opt = parser.parse_args('-v E:\\work\\3-38_3-52.mp4 -a E:\\work\\original_3-38_3-52.json -r E:\\work\\review_ind.json --keyframes 1-7,9-11'.split())
 
     print("Total number of corrected elements is ", main(**vars(opt)))
+

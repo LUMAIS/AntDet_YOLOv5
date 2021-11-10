@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+:Description: Masking the trophallaxis events for ant videos.
+
+:Authors: (c) Valentyna Pryhodiuk <vpryhodiuk@lumais.com>
+:Date: 2020-11-10
+"""
 import cv2
 import numpy as np
 import matplotlib._color_data as mcd
