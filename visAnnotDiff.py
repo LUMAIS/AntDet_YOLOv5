@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!AppData\Local\Programs\Python\Python39\python.exe
 # -*- coding: utf-8 -*-
 """
 :Description: Evaluation and visualization script for annotation review.
