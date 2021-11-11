@@ -10,6 +10,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from json import load
 from typing import Dict, Any
 from lbxTorch import count_objects, strparse
+from collections import namedtuple
 
 import cv2
 import numpy as np
@@ -77,10 +78,10 @@ def visualize_bbox(image: np.ndarray, tool: Dict[str, Any], thickness: int = 2, 
     Returns:
         image with a bounding box drawn on it.
     """
-    start = (int(tool[0]["left"]), int(tool[0]["top"]))
-    end = (int(tool[0]["left"] + tool[0]["width"]),
-           int(tool[0]["top"] + tool[0]["height"]))
-    h = tool[1].lstrip('#')
+    start = (int(tool.bbox["left"]), int(tool.bbox["top"]))
+    end = (int(tool.bbox["left"] + tool.bbox["width"]),
+           int(tool.bbox["top"] + tool.bbox["height"]))
+    h = tool.color.lstrip('#')
     color = tuple(int(h[i:i + 2], 16) for i in (4, 2, 0)) #BGR
     if style:
         dashrect(image, start, end, color, thickness, style)
@@ -96,20 +97,21 @@ def shorten_file(jsFile: str) -> Dict[str, list]:
     Args:
         jsFile (list): json file which contains annotations
     Returns:
-        {framenum: {<feature_id>: [<bbox>, <color>]}} for jsfile
+        {framenum: {<feature_id>: [<bbox>, <color>, <keyframe>]}} for jsfile
     """
     annotDict = dict()
+    Annotation = namedtuple('Annotation', 'bbox color keyframe')
 
     for frame in jsFile:
         frameNum = frame['frameNumber']
         annotDict[frameNum] = dict()
         for obj in frame['objects']:
             feature_id = obj['featureId']
-            annotDict[frameNum][feature_id] = [obj['bbox'], obj['color']]
+            annotDict[frameNum][feature_id] = Annotation(obj['bbox'], obj['color'], obj['keyframe'])
     return annotDict
 
 
-def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview: str = None, keyframes: str = '1-$') -> int:
+def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview: str = None, keyframes: str = '1-$'):
     """
     If video is given, draws annotation difference between given files.
 
@@ -128,7 +130,7 @@ def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview:
 
     totalel = count_objects(orFile, keyframes, 0)
     total = len(orFile)
-    print("Total number of annotated objects is ", totalel)
+    print("Number of annotated objects is", totalel)
     orFile = shorten_file(orFile)
     revFile = shorten_file(revFile)
 
@@ -139,9 +141,10 @@ def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview:
             _, frame = vid.read()
             height, width = frame.shape[:2]
             writer = cv2.VideoWriter(vidreview, cv2.VideoWriter_fourcc(*'mp4v'),
-                vid.get(cv2.CAP_PROP_FPS), (width, height))
+                                     vid.get(cv2.CAP_PROP_FPS), (width, height))
 
-    totcorected = 0
+    numchanges = 0
+    numcorpos = 0
     framelst = strparse(keyframes)
 
     for [beginning, ending] in framelst:
@@ -155,17 +158,20 @@ def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview:
 
         for frameNum in range(int(beginning), int(ending) + 1):
             show = False
-            for feature_id in revFile[frameNum]:
+            for feature_id, revobject in revFile[frameNum].items():
                 try:
                     if orFile[frameNum][feature_id] != revFile[frameNum][feature_id]:
                         show = video
-                        totcorected += 1
+                        numchanges += 1
                         frame = visualize_bbox(frame, orFile[frameNum][feature_id])
                         frame = visualize_bbox(frame, revFile[frameNum][feature_id], style='dotted')
+                        if revobject.keyframe:
+                            numcorpos += 1
                 except KeyError:
-                    totcorected += 1
+                    numcorpos += 1
+                    numchanges += 1
                     show = video
-                    frame = visualize_bbox(frame, revFile[frameNum][feature_id], style='dashed')
+                    frame = visualize_bbox(frame, revobject, style='dashed')
             if writer is not None:
                 writer.write(frame)
             elif show:
@@ -188,7 +194,7 @@ def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview:
         writer.release()
     if video:
         vid.release()
-    return totcorected
+    return numchanges, numcorpos
 
 
 if __name__ == '__main__':
@@ -201,7 +207,9 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--video', type=str, default ='', help='Path to the original video')
     parser.add_argument('-o', '--output-video', dest='vidreview', type=str, help='Output video instead of the interactive analysis')
     parser.add_argument('-k', '--keyframes', type=str, default='1-$', help='Target intervals of frames if necessary')
-    opt = parser.parse_args('-v E:\\work\\3-38_3-52.mp4 -a E:\\work\\original_3-38_3-52.json -r E:\\work\\review_ind.json --keyframes 1-7,9-11'.split())
+    opt = parser.parse_args() #'-v E:\\work\\3-38_3-52.mp4 -a E:\\work\\original_3-38_3-52.json -r E:\\work\\review_ind.json --keyframes 1-17 -o out.mp4'.split())
 
-    print("Total number of corrected elements is ", main(**vars(opt)))
+    res = main(**vars(opt))
+    print("Number of corrected positions in fact is", res[0])
+    print("Number of corrections indeed is", res[1])
 
