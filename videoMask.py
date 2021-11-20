@@ -15,7 +15,7 @@ from re import split
 from PIL import Image, ImageDraw
 from numpy.random import randint
 from random import choice, seed
-from time import time
+from datetime import datetime
 
 
 
@@ -49,11 +49,11 @@ class Roi:
         self.end = self.end if "!" not in roi else params[-1]
 
 
-def roi_processing(vidpath: str, rois: str, filename: str, rand: bool = False, color: str = "black"):
+def roi_processing(vidpath: str, rois: str, filename: str, rand: bool = False, static: bool = True, color: str = "black"):
     """
 
     Args:
-        vidpath (str): path to data with filename
+        vidpath (str): path to video data with filename
         rois (str): list of strings LEFT,TOP,WIDTH,HEIGHT [;SHAPE=rect][^FRAME_START=0][!FRAME_FINISH=LAST_FRAME]]
         filename (str): name for a new video
         rand (bool): True if background needs to be randomly colored
@@ -63,7 +63,10 @@ def roi_processing(vidpath: str, rois: str, filename: str, rand: bool = False, c
     total = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))  # number of frames in a video
     _, frame = vid.read()
     height, width = frame.shape[:2]
-    seed(time())
+    print(width, height)
+    now = datetime.now()
+    seed(now.hour+now.minute+now.second)
+    np.random.seed(now.hour+now.minute+now.second)
 
     roi_list = []
     for roi in rois:
@@ -76,7 +79,10 @@ def roi_processing(vidpath: str, rois: str, filename: str, rand: bool = False, c
 
     # get hex code for a background color by name
     hcode = choice(list(mcd.CSS4_COLORS.values())) if not color else mcd.CSS4_COLORS[color]
-    bg = Image.new('RGB', (width, height), hcode)
+    if static and rand:
+        bg = Image.fromarray(randint(0, 256, (height, width, 3)).astype(np.uint8))
+    else:
+        bg = Image.new('RGB', (width, height), hcode)
     for i in range(1, total + 1):
         mask = Image.new("L", (width, height), 0)
         for roi in roi_list:
@@ -98,8 +104,11 @@ def roi_processing(vidpath: str, rois: str, filename: str, rand: bool = False, c
             masked = frame
         else:
             im_frame = Image.fromarray(frame[:, :, ::-1])  # RGB
-            if rand:
+            if not static and rand:
                 bg = Image.fromarray(randint(0, 256, (height, width, 3)).astype(np.uint8))
+            elif not rand:
+                hcode = choice(list(mcd.CSS4_COLORS.values()))
+                bg = Image.new('RGB', (width, height), hcode)
             masked = Image.composite(im_frame, bg, mask)
             masked = np.array(masked)[:, :, ::-1]  # BGR
         writer.write(masked)
@@ -120,7 +129,12 @@ if __name__ == '__main__':
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-c', '--color', type=str, help='color written as a word like pink, aqua, etc.')
-    group.add_argument('-rand', help='True if background needs to be randomly colored')
-    opt = parser.parse_args()
+    group.add_argument('-rand', action="store_true", help='True if background needs to be randomly colored')
+    opt = parser.parse_args() #"-v E:\\work\\11-23_11-34.mp4 -r 737,378,125,159 -f 11-11.mp4".split())
+    #1920x1061
+    #^50(736, 411, 98, 164) to $
+    # (793, 133, 164, 125) from 336 to 437
+    #from 84 to 283
+    # [(737, 378, 125, 159)]
 
     roi_processing(**vars(opt))
