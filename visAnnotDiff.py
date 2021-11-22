@@ -1,10 +1,10 @@
-#!AppData\Local\Programs\Python\Python39\python.exe
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 :Description: Evaluation and visualization script for annotation review.
 
 :Authors: (c) Valentyna Pryhodiuk <vpryhodiuk@lumais.com>
-:Date: 2020-11-04
+:Date: 2021-11-04
 """
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from json import load
@@ -160,7 +160,7 @@ def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview:
             show = False
             for feature_id, revobject in revFile[frameNum].items():
                 try:
-                    if orFile[frameNum][feature_id] != revFile[frameNum][feature_id]:
+                    if orFile[frameNum][feature_id].bbox != revFile[frameNum][feature_id].bbox:
                         show = video
                         numchanges += 1
                         frame = visualize_bbox(frame, orFile[frameNum][feature_id])
@@ -207,7 +207,8 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--video', type=str, default ='', help='Path to the original video')
     parser.add_argument('-o', '--output-video', dest='vidreview', type=str, help='Output video instead of the interactive analysis')
     parser.add_argument('-k', '--keyframes', type=str, default='1-$', help='Target intervals of frames if necessary')
-    opt = parser.parse_args() #'-v E:\\work\\3-38_3-52.mp4 -a E:\\work\\original_3-38_3-52.json -r E:\\work\\review_ind.json --keyframes 1-17 -o out.mp4'.split())
+    opt = parser.parse_args() #'-a E:\\work\\test_or.json -r E:\\work\\test_revv.json --keyframes 314-337'.split())
+    # #'-v E:\\work\\3-38_3-52.mp4 -a E:\\work\\original_3-38_3-52.json -r E:\\work\\review_ind.json --keyframes 1-6 -o out.mp4'.split())
 
     res = main(**vars(opt))
     print("Number of corrected positions in fact is", res[0])

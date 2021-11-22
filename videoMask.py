@@ -1,4 +1,4 @@
-#!AppData\Local\Programs\Python\Python39\python.exe
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 :Description: Masking the trophallaxis events for ant videos.
