@@ -111,7 +111,7 @@ def shorten_file(jsFile: str) -> Dict[str, list]:
     return annotDict
 
 
-def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview: str = None, keyframes: str = '1-$'):
+def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview: str = None, keyframes: str = '1-$', epsilon: float = 0):
     """
     If video is given, draws annotation difference between given files.
 
@@ -160,9 +160,11 @@ def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview:
             show = False
             for feature_id, revobject in revFile[frameNum].items():
                 try:
-                    if orFile[frameNum][feature_id].bbox != revFile[frameNum][feature_id].bbox:
-                        show = video
+                    orBbox = orFile[frameNum][feature_id].bbox
+                    mistake = [abs(orBbox[key] - revobject.bbox[key]) <= epsilon for key in revobject.bbox]
+                    if mistake != [1] * 4:
                         numchanges += 1
+                        show = video
                         frame = visualize_bbox(frame, orFile[frameNum][feature_id])
                         frame = visualize_bbox(frame, revFile[frameNum][feature_id], style='dotted')
                         if revobject.keyframe:
@@ -207,9 +209,8 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--video', type=str, default ='', help='Path to the original video')
     parser.add_argument('-o', '--output-video', dest='vidreview', type=str, help='Output video instead of the interactive analysis')
     parser.add_argument('-k', '--keyframes', type=str, default='1-$', help='Target intervals of frames if necessary')
-    opt = parser.parse_args() #'-a E:\\work\\test_or.json -r E:\\work\\test_revv.json --keyframes 314-337'.split())
-    # #'-v E:\\work\\3-38_3-52.mp4 -a E:\\work\\original_3-38_3-52.json -r E:\\work\\review_ind.json --keyframes 1-6 -o out.mp4'.split())
-
+    parser.add_argument('-e', '--epsilon', type=float, default=0, help='The maximum permissible error of the bbox dimension')
+    opt = parser.parse_args()
     res = main(**vars(opt))
     print("Number of corrected positions in fact is", res[0])
     print("Number of corrections indeed is", res[1])
