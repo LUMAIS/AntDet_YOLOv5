@@ -210,7 +210,13 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output-video', dest='vidreview', type=str, help='Output video instead of the interactive analysis')
     parser.add_argument('-k', '--keyframes', type=str, default='1-$', help='Target intervals of frames if necessary')
     parser.add_argument('-e', '--epsilon', type=float, default=0, help='The maximum permissible error of the bbox dimension')
-    opt = parser.parse_args()
+    opt = parser.parse_args('-a E:\\work\\original_3-38_3-52.json -r E:\\work\\test_rev.json --keyframes 1-$ -e 1'.split())
+    # #'-v E:\\work\\3-38_3-52.mp4 -a E:\\work\\original_3-38_3-52.json -r E:\\work\\review_ind.json --keyframes 1-6 -o out.mp4'.split())
+    #Number of annotated objects is 12858
+    # Number of corrected positions in fact is 2734     22136 < 22885 < 24202
+    # Number of corrections indeed is 58
+
+    #12858 / 45360
     res = main(**vars(opt))
     print("Number of corrected positions in fact is", res[0])
     print("Number of corrections indeed is", res[1])
