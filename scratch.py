@@ -2,29 +2,30 @@
 # -*- coding: utf-8 -*-
 from collections import namedtuple
 from json import load
+from typing import Dict, Any
 
 feature2num = {}
 
 
-def shorten_file(jsFile: str) -> list:
+def shorten_file(jsFile: str) -> Dict[str, list]:
     """
     Gets only relevant information from annotation file
 
     Args:
         jsFile (list): json file which contains annotations
     Returns:
-        list of {<feature_id>: [<bbox>, <color>, <keyframe>]} for jsfile
+        {framenum: {<feature_id>: [<bbox>, <color>, <keyframe>]}} for jsfile
     """
-    annotList = []
+    annotDict = dict()
     Annotation = namedtuple('Annotation', 'bbox color keyframe')
 
     for frame in jsFile:
-        frameNum = frame['frameNumber'] - 1
-        annotList.append(dict())
+        frameNum = frame['frameNumber']
+        annotDict[frameNum] = dict()
         for obj in frame['objects']:
             feature_id = obj['featureId']
-            annotList[frameNum][feature_id] = Annotation(obj['bbox'], obj['color'], obj['keyframe'])
-    return annotList
+            annotDict[frameNum][feature_id] = Annotation(obj['bbox'], obj['color'], obj['keyframe'])
+    return annotDict
 
 
 class Ant:
@@ -75,7 +76,6 @@ def valid(jsfile):
     global feature2num
     annot = shorten_file(jsfile)
     anthill = AntList()
-    notsure = AntList()
     feature2num = {}
     heads = set()
     bodies = set()
@@ -85,46 +85,51 @@ def valid(jsfile):
         for object in frame['objects']:
             if object['value'] == 'ant':
                 bodies.add(object['featureId'])
-                feature2num[object['featureId']] = body_num
-                body_num +=1
+                feature2num[object['featureId']] = body_num if not object['featureId'] in feature2num else max(body_num, feature2num[object['featureId']])
+                body_num += 1
             elif object['value'] == 'ant-head':
                 heads.add(object['featureId'])
-                feature2num[object['featureId']] = head_num
+                feature2num[object['featureId']] = head_num if not object['featureId'] in feature2num else max(head_num, feature2num[object['featureId']])
                 head_num += 1
-    for frame in annot:
-        for bodyId in bodies:
+    print(len(bodies), len(heads))
+    for bodyId in bodies:
+        notsure = AntList()
+        for frame in annot.values():
             flag = True  # if True append ant to main list
             ant = None
-            try:
+            if bodyId in frame:
                 bLeft, bRight = frame[bodyId].bbox['left'], frame[bodyId].bbox['left'] + frame[bodyId].bbox['width']
                 bTop, bBottom = frame[bodyId].bbox['top'], frame[bodyId].bbox['top'] + frame[bodyId].bbox['height']
                 for headId in heads:
-                    hCenter_x = frame[headId].bbox['left'] + frame[headId].bbox['width'] / 2
-                    hCenter_y = frame[headId].bbox['top'] + frame[headId].bbox['height'] / 2
-                    if bLeft < hCenter_x < bRight and bTop < hCenter_y < bBottom:
-                        # if ant with this body on current frame exists turn flag False
-                        flag *= 1 if ant is None else 0
-                        ant = Ant(bodyId, headId)
-
-                        # if head is already used but by a different ant turn flag to False
-                        flag *= 0 if anthill.ishead(ant.head) and anthill.index(ant) == -1 else 1
-                        if not flag:
+                    if headId in frame:
+                        hCenter_x = frame[headId].bbox['left'] + frame[headId].bbox['width'] / 2
+                        hCenter_y = frame[headId].bbox['top'] + frame[headId].bbox['height'] / 2
+                        if bLeft < hCenter_x < bRight and bTop < hCenter_y < bBottom:
+                            # if ant with this body on current frame exists turn flag False
+                            flag *= 1 if ant is None else 0
+                            ant = Ant(bodyId, headId)
                             notsure.append(ant)
-                if flag and ant:
-                    anthill.append(ant)
+                        # if head is already used but by a different ant turn flag to False
+                        # flag *= 0 if anthill.ishead(ant.head) and anthill.index(ant) == -1 else 1
+                        # if not flag:
+                        #     notsure.append(ant)
+        if flag and ant:
+            anthill.append(ant)
+        else:
+            # choosing best candidates from notsure list
+            best = 0
+            try:
+                ant1 = notsure[best]
+                for j, ant2 in enumerate(notsure):
+                    if (ant2.appears >= ant1.appears and not anthill.ishead(ant2.head)) or (anthill.ishead(ant1.head) and not anthill.ishead(ant2.head)):
+                        best = j
+                        ant1 = ant2
+
+                if not anthill.ishead(ant1.head):
+                    anthill.append(notsure[best])
             except Exception as e:
-                pass #print(e)
-    # choosing best candidates from notsure list
-    for i in range(len(notsure)):
-        best = i
-        ant1 = notsure[best]
-        for j, ant2 in enumerate(notsure):
-            if ant1.body == ant2.body and ant2.appears >= ant1.appears and not anthill.isbody(
-                    ant2.body) and not anthill.ishead(ant2.head):
-                best = j
-                ant1 = ant2
-        if not anthill.isbody(ant1.body) and not anthill.ishead(ant1.head):
-            anthill.append(notsure[best])
+                print(e)
+
     for ant in anthill:
         bodyId, headId = ant.body, ant.head
         for frame in jsfile:
@@ -155,8 +160,9 @@ if __name__ == '__main__':
     al = AntList([Ant(1, 1), Ant(2, 1), Ant(3, 3)])
     al.append(Ant(2, 1))
 
-    with open('E:\\work\\original_3-38_3-52.json', 'r') as file:
+    with open('E:\\work\\test_rev.json', 'r') as file: #original_3-38_3-52.json'
         jsfile = load(file)
 
-    file = jsfile[:175]
-    valid(file).print()
+    # file = jsfile[375:]
+    valid(jsfile).print()
+    print(feature2num)
