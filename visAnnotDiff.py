@@ -198,6 +198,40 @@ def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview:
         vid.release()
     return numchanges, numcorpos
 
+def drawById(annotated: str, video: str, keyframe: int, bodyId: str, headId: str):
+    """
+    If video is given, draws annotation difference between given files.
+
+    Args:
+        annotated (str): path to annotation file before corrections
+        reviewed (str): path to annotation file after corrections
+        video (str): path to data with filename
+        keyframes (str): intervals of frames that should be taken into account
+    """
+    with open(annotated) as f1:
+        orFile = load(f1)
+        f1.close()
+
+    orFile = shorten_file(orFile)
+
+    vid = cv2.VideoCapture(video)
+    vid.set(cv2.CAP_PROP_POS_FRAMES, keyframe)
+    _, frame = vid.read()
+    frame = visualize_bbox(frame, orFile[keyframe][bodyId])
+    frame = visualize_bbox(frame, orFile[keyframe][headId])
+    wTitle = 'frameNumber ' + str(keyframe)
+    cv2.namedWindow(wTitle, cv2.WINDOW_NORMAL)
+    h, w = frame.shape[:2]
+    scale = 1.2
+    cv2.resizeWindow(wTitle, int(w / scale), int(h / scale))
+    cv2.imshow(wTitle, frame)
+    cv2.waitKey(0)
+    # vid.release()
+    # key = cv2.waitKey(1) & 0xFF
+    # Quit: escape, e or q
+    # if key in (27, ord('e'), ord('q')):
+    #     cv2.destroyAllWindows()
+
 
 if __name__ == '__main__':
     parser = ArgumentParser(description='Document Taxonomy Builder.',
@@ -206,12 +240,18 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--annotated', type=str, help='Path to the JSON file of original annotations')
     parser.add_argument('-r', '--reviewed', type=str, help='Path to the JSON file of reviewed annotations')
 
-    parser.add_argument('-v', '--video', type=str, default ='', help='Path to the original video')
+    parser.add_argument('-v', '--video', type=str, default='', help='Path to the original video')
     parser.add_argument('-o', '--output-video', dest='vidreview', type=str, help='Output video instead of the interactive analysis')
     parser.add_argument('-k', '--keyframes', type=str, default='1-$', help='Target intervals of frames if necessary')
     parser.add_argument('-e', '--epsilon', type=float, default=0, help='The maximum permissible error of the bbox dimension')
     opt = parser.parse_args()
+    #'-a E:\\work\\EuresysCapturing_IR_100_2021-08-24_17.json -r new.json -o out.mp4 -v E:\\work\\100testimages.mp4 --keyframes 1-$ -e 1'.split())
+    #'-a E:\\work\\original_3-38_3-52.json -r E:\\work\\test_rev.json --keyframes 1-$ -e 1'.split())
+
     res = main(**vars(opt))
+    # drawById('E:\\work\\test_rev.json', 'E:\\work\\3-38_3-52.mp4', 244, 'ckvg0kcyu000r38675tzpmh2p', 'ckvg0jsue000m3867tdxqkkhr')
+
+
     print("Number of corrected positions in fact is", res[0])
     print("Number of corrections indeed is", res[1])
 
