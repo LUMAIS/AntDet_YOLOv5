@@ -1,3 +1,12 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+:Description: Evaluation and сonversion script for counting annotated objects on 1 label imported from Lablebox
+and converting latter annotations into YOLOv5 format.
+
+:Authors: (c) Valentyna Pryhodiuk <vpryhodiuk@lumais.com>
+:Date: 2020-11-04
+"""
 import json
 import os
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, SUPPRESS
@@ -12,6 +21,8 @@ class_name_to_id_mapping = {"ant": 0,
                             "pupa": 6,
                             "barcode": 7} #,"uncategorized": 8}
 # we delete uncategorized from possible classes to simplify the process of omitting them
+
+attributes = {'overlapping', 'blurry', "side-view", "low-confidence"}
 
 #convert string <n1>-<n2>, ... into list of beginnings and endings of the respective intervals
 def strparse(fstr):
@@ -96,37 +107,49 @@ def count_objects(jsfile, keyframes, obj_cost):
     if not class_name_to_id_mapping.get("uncategorized"):
         class_name_to_id_mapping["uncategorized"] = 8
     cls_count = {key: 0 for key in class_name_to_id_mapping}
+    atr_count = {key: 0 for key in attributes}
     # pattern = r'\d+\-\d+,?|\d+'
 
     #find all the intervals or just separated frame numbers
     framelst = strparse(keyframes)
-    sum = 0
+    suma = 0
     print_buffer = []
 
     for [beginning, ending] in framelst:
-        ending = len(jsfile) if ending == '$' else ending
+        ending = len(jsfile) if ending == '$' or int(ending) > len(jsfile) else ending
 
-        try:
-            for i in range(int(beginning) - 1, int(ending)):
-                frame = jsfile[i]
-                print_buffer.append(frame["frameNumber"])
+        if not (0 <= int(beginning) - 1 < int(ending)):
+            raise IndexError("Invalid frame's range.")
+        for i in range(int(beginning) - 1, int(ending)):
+            frame = jsfile[i]
+            print_buffer.append(frame["frameNumber"])
 
-                # For each obj in frame
-                for obj in frame['objects']:
-                    if obj['keyframe']: #true, if was changed
-                        if obj['title'] in cls_count:
-                            cls_count[obj["title"]] += 1
-        except IndexError:
-            print("WARNING: Invalid frame's range. Number of edited frames is {}".format(len(jsfile)))
+            # For each obj in frame
+            for obj in frame['objects']:
+                if obj['keyframe']: #true, if was changed
+                    if obj['title'] in cls_count:
+                        cls_count[obj["title"]] += 1
+                if obj['classifications']:
+                    for classif in obj['classifications']:
+                        if classif['answers']:
+                            for answer in classif['answers']:
+                                if answer['value'] in atr_count and answer['keyframe']:
+                                    atr_count[answer['value']] += 1
 
     print_buffer.sort()
-    print("Frames taken to account: ", print_buffer)
+    print("Frames taken to account: ", print_buffer, "\n-----------Classes-----------")
     for key, value in cls_count.items():
-        sum += value
+        suma += value
+        print("{}: {}".format(key, value))
+    print("----------Attributes----------")
+    for key, value in atr_count.items():
         print("{}: {}".format(key, value))
     if obj_cost:
-        print("Total: {} \nCost: ${}".format(sum, sum*obj_cost))
-    return sum
+        print("------------Total-------------")
+        print("""Total by class: {} \nCost: ${} \nTotal by attribute: {}""".format(suma,
+                                                                                   suma*obj_cost,
+                                                                                   sum(list(atr_count.values()))))
+    return suma
 
 
 if __name__ == '__main__':
@@ -150,15 +173,17 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--frames', type=str, default='1-$',
                         help='Range of frames')
 
-    parser.add_argument('-k', '--keyframed-objects', default=False, type=bool,
+    parser.add_argument('-k', '--keyframed-objects', action="store_true",
                         help='True if annotations should be counted')
 
     args = parser.parse_args()
+    #'-json-path /home/valia/Завантаження/3-artem.lutov.json -f 5-4 -k'.split())
 
     for filepath in args.filepath:
         with open(filepath) as jsonFile:
             annotations = json.load(jsonFile)
-
+        # with open('data.json', 'w') as f:
+        #     json.dump(annotations[:6], f)
         if args.keyframed_objects:
             count_objects(annotations, args.frames, args.object_cost)
         else:
