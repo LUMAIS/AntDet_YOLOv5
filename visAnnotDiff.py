@@ -257,7 +257,7 @@ if __name__ == '__main__':
     parser.add_argument('-k', '--keyframes', type=str, default='1-$', help='Target intervals of frames if necessary')
     parser.add_argument('-e', '--epsilon', type=float, default=0, help='The maximum permissible error of the bbox dimension')
     opt = parser.parse_args()
-    #'-a original_3-38_3-52.json -r review_3-38_3-52.json -k 1-35 -e 2 -v Cflo_troph_count_3-38_3-52.mp4 -o 1.mp4'.split())
+
     res = main(**vars(opt))
     print(
         (f"Corrected classes: {res[0]}\n"
