@@ -52,7 +52,7 @@ def dashpoly(img, pts, color, thickness=1, style='dotted', ):
 
 
 def dashrect(img: np.ndarray, pt1: tuple, pt2: tuple,
-             color: tuple, thickness: int = 4, style: str ='dotted'):
+             color: tuple, thickness: int = 4, style: str = 'dotted'):
     """
     Draws a dashed rectangle on an image
 
@@ -82,12 +82,13 @@ def visualize_bbox(image: np.ndarray, tool: Dict[str, Any], thickness: int = 2, 
     end = (int(tool['bbox']["left"] + tool['bbox']["width"]),
            int(tool['bbox']["top"] + tool['bbox']["height"]))
     h = tool['color'].lstrip('#')
-    color = tuple(int(h[i:i + 2], 16) for i in (4, 2, 0)) #BGR
+    color = tuple(int(h[i:i + 2], 16) for i in (4, 2, 0))  # BGR
     if style:
         dashrect(image, start, end, color, thickness, style)
     else:
         cv2.rectangle(image, start, end, color, thickness)
     return image
+
 
 # no need
 def shorten_file(jsFile: str) -> Dict[str, list]:
@@ -110,6 +111,7 @@ def shorten_file(jsFile: str) -> Dict[str, list]:
             annotDict[frameNum][feature_id] = Annotation(obj['bbox'], obj['color'], obj['keyframe'])
     return annotDict
 
+
 def get_attr(obj: Dict) -> Dict:
     """
     Helps to track changes in attributes over time.
@@ -128,8 +130,8 @@ def get_attr(obj: Dict) -> Dict:
     return attrs
 
 
-
-def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview: str = None, keyframes: str = '1-$', epsilon: float = 0):
+def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview: str = None, keyframes: str = '1-$',
+         epsilon: float = 0, mal: bool = False):
     """
     If video is given, draws annotation difference between given files.
 
@@ -190,7 +192,7 @@ def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview:
             oFrame = orFile[frameNum - 1]
 
             for rObj in rFrame['objects']:
-                flag = False # to track down if it's not a new object
+                flag = False  # to track down if it's not a new object
                 for oObj in oFrame['objects']:
                     if rObj['featureId'] == oObj['featureId']:
                         mistake = [abs(rObj['bbox'][dim] - oObj['bbox'][dim]) <= epsilon for dim in rObj['bbox'].keys()]
@@ -252,10 +254,12 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--annotated', type=str, help='Path to the JSON file of original annotations')
     parser.add_argument('-r', '--reviewed', type=str, help='Path to the JSON file of reviewed annotations')
 
-    parser.add_argument('-v', '--video', type=str, default ='', help='Path to the original video')
-    parser.add_argument('-o', '--output-video', dest='vidreview', type=str, help='Output video instead of the interactive analysis')
+    parser.add_argument('-v', '--video', type=str, default='', help='Path to the original video')
+    parser.add_argument('-o', '--output-video', dest='vidreview', type=str,
+                        help='Output video instead of the interactive analysis')
     parser.add_argument('-k', '--keyframes', type=str, default='1-$', help='Target intervals of frames if necessary')
-    parser.add_argument('-e', '--epsilon', type=float, default=0, help='The maximum permissible error of the bbox dimension')
+    parser.add_argument('-e', '--epsilon', type=float, default=0,
+                        help='The maximum permissible error of the bbox dimension')
     opt = parser.parse_args()
     # '-a original_3-38_3-52.json -r review_3-38_3-52.json -k 1-35 -e 2 -v Cflo_troph_count_3-38_3-52.mp4 -o 1.mp4'.split())
     res = main(**vars(opt))
@@ -264,4 +268,3 @@ if __name__ == '__main__':
          f"Corrected attributes: {res[1]}\n"
          f"Corrected classes in keyframes: {res[2]}\n"
          f"Corrected attributes in keyframes: {res[3]}").format(res))
-
