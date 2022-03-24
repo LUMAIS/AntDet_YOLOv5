@@ -20,7 +20,7 @@ from tkinter.filedialog import askopenfilename
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 
-def visualize_bbox(image: np.ndarray, tool, thickness: int = 2) -> np.ndarray:
+def visualize_bbox(image: np.ndarray, tool, style=False, thickness: int = 2) -> np.ndarray:
     """
     Draws a bounding box on an image
 
@@ -36,9 +36,14 @@ def visualize_bbox(image: np.ndarray, tool, thickness: int = 2) -> np.ndarray:
            int(tool['bbox']["top"] + tool['bbox']["height"]))
     h = tool['color'].lstrip('#')
     color = tuple(int(h[i:i + 2], 16) for i in (4, 2, 0))  # BGR
-    cv2.rectangle(image, start, end, color, thickness)
-    cv2.putText(image, tool['title'][0] + '1', (start[0], start[1]-3),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 1)
+    if not style:
+        cv2.rectangle(image, start, end, color, thickness)
+        cv2.putText(image, tool['id'], (start[0], start[1]-3),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 1)
+    else:
+        cv2.rectangle(image, start, end, color, round(thickness*1.5))
+        cv2.putText(image, tool['id'], (start[0], start[1] - 3),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
 
     return image
 
@@ -49,26 +54,22 @@ class App:
         with open(filepath1, 'r') as f:
             self.file1 = json.load(f)
 
+        # with open(filepath1.rstrip('json') + 'improved.json', 'w') as f:
+        #     self.file2 = json.load(f)
+
         self.horizontal = horizontal
 
         # ----------------OpenCV GUI block-----------------------
         self.w0, self.h0 = w0, h0
         self.vidpath = video
         self.vid = cv2.VideoCapture(video)
-        _, self.frame = self.vid.read()
+        _, self.fframe = self.vid.read()
+        _, self.nframe = self.vid.read()
+        self.h, self.w = self.fframe.shape[:2]
         self.windowName = 'image'
         self.trTitle = 'tracker'
         self.trackerPos = 0
 
-        # ----------------Tkinter block---------------------------
-        self.window = None  # child box
-        self.wFrame = None  # frame in the child box
-        self.rowFrames = []  # rows of wFrame with necessary intervals
-        self.fName = None  # holds name of the Video to produce
-        self.bg = None  # holds the chosen variant of coloring the background
-        self.shape = None  # holds the chosen variant of ROI's shape
-        self.custom = None  # if true then ROI should be changed on each frame (in progress)
-        self.go2 = None  # holds the chosen parameter of the jump
         self.begin(w0, h0)
 
     def begin(self, w0, h0):
@@ -80,7 +81,7 @@ class App:
         + calls drawROI
         """
         cv2.namedWindow(self.windowName, cv2.WINDOW_NORMAL)
-        h, w = self.frame.shape[:2]
+        h, w = self.fframe.shape[:2]
 
         k = 2 if self.horizontal else 1/2
 
@@ -90,15 +91,15 @@ class App:
         else:
             cv2.resizeWindow(self.windowName, self.w0, int(h * w0 / w / k))
 
-        self.drawRoi(True)
+        self.drawRoi()
         cv2.createTrackbar(self.trTitle, self.windowName, 0,
                            int(self.vid.get(cv2.CAP_PROP_FRAME_COUNT)) - 2,
                            # -2 because we start from 0 and we show 2 frames at one time
                            self.trackbar)
-        cv2.setMouseCallback(self.windowName, self.setRoi)
+        cv2.setMouseCallback(self.windowName, self.react)
         cv2.waitKey(0)
 
-    def setRoi(self, event, x, y, flags, params):
+    def react(self, event, x, y, flags, params):
         """Mouse callback to set ROI
 
         event  - mouse event
@@ -107,34 +108,96 @@ class App:
         flags  - additional flags
         params - extra parameters
         """
-        return None
 
-    def drawRoi(self, flag=False):
+        ids = []
+        if self.horizontal:
+            k = 1 if x > self.w else 0
+            for obj in self.file1[self.trackerPos + k]['objects']:
+                start = (int(obj['bbox']["left"]), int(obj['bbox']["top"]))
+                end = (int(obj['bbox']["left"] + obj['bbox']["width"]),
+                       int(obj['bbox']["top"] + obj['bbox']["height"]))
+                if start[0] < x - self.w * k < end[0] and start[1] < y < end[1]:
+                    ids.append(obj['id'])
+        else:
+            k = 1 if y > self.h else 0
+            for obj in self.file1[self.trackerPos + k]['objects']:
+                start = (int(obj['bbox']["left"]), int(obj['bbox']["top"]))
+                end = (int(obj['bbox']["left"] + obj['bbox']["width"]),
+                       int(obj['bbox']["top"] + obj['bbox']["height"]))
+                if start[0] < x < end[0] and start[1] < y - self.h * k < end[1]:
+                    ids.append(obj['id'])
+
+        if event == cv2.EVENT_LBUTTONUP:
+            for id in ids:
+                newId = input('{} ->'.format(id))
+
+
+        # elif event == cv2.EVENT_LBUTTONUP:
+        #     if not self.drawingRect:
+        #         return 0  # if person stops drawing clicking R button, but then releases L button
+        #     flag = True
+        #
+        #     pTL = (min(self.drawingRect[0][0], self.drawingRect[1][0]),
+        #            min(self.drawingRect[0][1], self.drawingRect[1][1]))
+        #
+        #     pBR = (max(self.drawingRect[0][0], self.drawingRect[1][0]),
+        #            max(self.drawingRect[0][1], self.drawingRect[1][1]))
+        #     self.drawingRect = None
+        #     # Set the roiRect or reset it
+        #     if pTL != pBR:
+        #         # Adjust to X px padding
+        #         pxBlock = 8
+        #         dx = (pBR[0] - pTL[0]) % pxBlock
+        #         if dx:
+        #             dx = pxBlock - dx
+        #         dy = (pBR[1] - pTL[1]) % pxBlock
+        #         if dy:
+        #             dy = pxBlock - dy
+        #         self.roiRect.append((pTL, (pBR[0] + dx, pBR[1] + dy)))
+        #     else:
+        #         self.roiRect = self.roiRect[:-1]
+        #
+        # if event == cv2.EVENT_RBUTTONUP:
+        #     """
+        #     Delete drawn ROI by clicking inside it's area from the parent and child window
+        #     """
+        #     if self.drawingRect:
+        #         self.drawingRect = None
+        #     else:
+        #         for i, ((x1, y1), (x2, y2)) in enumerate(self.roiRect):
+        #             row = self.rowFrames[i]
+        #             if x1 <= x <= x2 and y1 <= y <= y2 and int(
+        #                     row.winfo_children()[-3].get()) <= self.trackerPos <= int(row.winfo_children()[-1].get()):
+        #                 self.roiRect.remove(((x1, y1), (x2, y2)))
+        #                 self.rowFrames.pop(i).destroy()
+
+        if event == cv2.EVENT_MOUSEMOVE:
+            self.drawRoi(ids)
+
+
+    def drawRoi(self, ids=[]):
         """
         Draws the set ROI and calls tkWidget function to change info in the child box
         flag (bool): helping tool to understand if it is necessary to add drawn ROIs to the child box
         """
-        img1 = self.frame.copy()  # Copy image to not draw in over the original frame
-        _, img2 = self.vid.read()
-        cv2.putText(img1, str(self.trackerPos), (0, 35),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 0, 0), 4)
-        cv2.putText(img2, str(self.trackerPos + 1), (0, 35),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 0, 0), 4)
+        img = [self.fframe.copy(), self.nframe.copy()]
 
-        for obj in self.file1[self.trackerPos]['objects']:
-            rt = max(1, int(img1.shape[1] / self.w0) + 1)
-            img1 = visualize_bbox(img1, obj, rt)
+        for i in [0, 1]:
+            cv2.putText(img[i], str(self.trackerPos + i), (0, 35),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 0, 0), 4)
 
-        for obj in self.file1[self.trackerPos + 1]['objects']:
-            rt = max(1, int(img2.shape[1] / self.w0) + 1)
-            img2 = visualize_bbox(img2, obj, rt)
+            for obj in self.file1[self.trackerPos + i]['objects']:
+                rt = max(1, int(self.w / self.w0) + 1)
+                style = True if obj['id'] in ids else False
+                img[i] = visualize_bbox(img[i], obj, thickness=rt, style=style)
 
         if self.horizontal:
-            img = np.hstack((img1, img2))
+            img = np.hstack(img)
         else:
-            img = np.vstack((img1, img2))
+            img = np.vstack(img)
 
         cv2.imshow(self.windowName, img)
+
 
     def trackbar(self, val):
         """
@@ -143,7 +206,7 @@ class App:
         """
         self.trackerPos = val
         self.vid.set(cv2.CAP_PROP_POS_FRAMES, int(val))
-        _, self.frame = self.vid.read()
+        _, self.fframe = self.vid.read()
         self.drawRoi()
 
 
@@ -158,10 +221,10 @@ if __name__ == '__main__':
     group.add_argument('-vertical', type =bool, help="type of images' stack")
 
     parser.add_argument('-wsize', type=str, default="1600x1200", help='Your screen parameters WxH')
-    opt = parser.parse_args()
-    # "-v /home/valia/AntVideos/Cflo_troph_count_7-02_7-09.mp4 -f1 "
-    # "/home/valia/AntVideos/Cflo_troph_count_masked_6-00_6-31_MAL.json "
-    # "-vertical True".split())
+    opt = parser.parse_args(
+                            "-v /home/valia/AntVideos/Cflo_troph_count_7-02_7-09.mp4 -f1 "
+                            "/home/valia/AntVideos/Cflo_troph_count_masked_6-00_6-31_MAL_withId.json "
+                            "-vertical True".split())
     w, h = opt.wsize.split('x')
     flag = True if opt.horizontal else False
     App(opt.video, opt.filepath1, None, flag, int(w), int(h))
