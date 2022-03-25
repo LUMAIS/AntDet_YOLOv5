@@ -198,10 +198,7 @@ if __name__ == '__main__':
     group.add_argument('-vertical', type =bool, help="type of images' stack")
 
     parser.add_argument('-wsize', type=str, default="1600x1200", help='Your screen parameters WxH')
-    opt = parser.parse_args(
-                            "-v /home/valia/AntVideos/Cflo_troph_count_7-02_7-09.mp4 -f1 "
-                            "/home/valia/AntVideos/Cflo_troph_count_masked_6-00_6-31_MAL_withId.json "
-                            "-horizontal True".split())
+    opt = parser.parse_args()
     w, h = opt.wsize.split('x')
     flag = True if opt.horizontal else False
     App(opt.video, opt.filepath1, None, flag, int(w), int(h))
