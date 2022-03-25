@@ -9,15 +9,10 @@
 import cv2
 import os
 import json
-from pathlib import Path
-from tkinter import *
-
 import numpy as np
-from videoMask import roi_processing
-from random import choice, seed, randint
-from datetime import datetime
-from tkinter.filedialog import askopenfilename
+
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from re import findall
 
 
 def visualize_bbox(image: np.ndarray, tool, style=False, thickness: int = 2) -> np.ndarray:
@@ -52,7 +47,7 @@ class App:
     def __init__(self, video, filepath1, filepath2=None, horizontal=True, w0=1880, h0=1021):
         # ------------------Drawing frames block------------------
         with open(filepath1, 'r') as f:
-            self.file1 = json.load(f)
+            self.file = json.load(f)
 
         # with open(filepath1.rstrip('json') + 'improved.json', 'w') as f:
         #     self.file2 = json.load(f)
@@ -97,7 +92,12 @@ class App:
                            # -2 because we start from 0 and we show 2 frames at one time
                            self.trackbar)
         cv2.setMouseCallback(self.windowName, self.react)
-        cv2.waitKey(0)
+        key = cv2.waitKey(0)
+        # Quit: escape, e or q
+        if key in (27, ord('e'), ord('q')):
+            with open('improved.json', 'w') as f:
+                json.dump(self.file, f)
+            cv2.destroyAllWindows()
 
     def react(self, event, x, y, flags, params):
         """Mouse callback to set ROI
@@ -112,7 +112,7 @@ class App:
         ids = []
         if self.horizontal:
             k = 1 if x > self.w else 0
-            for obj in self.file1[self.trackerPos + k]['objects']:
+            for obj in self.file[self.trackerPos + k]['objects']:
                 start = (int(obj['bbox']["left"]), int(obj['bbox']["top"]))
                 end = (int(obj['bbox']["left"] + obj['bbox']["width"]),
                        int(obj['bbox']["top"] + obj['bbox']["height"]))
@@ -120,7 +120,7 @@ class App:
                     ids.append(obj['id'])
         else:
             k = 1 if y > self.h else 0
-            for obj in self.file1[self.trackerPos + k]['objects']:
+            for obj in self.file[self.trackerPos + k]['objects']:
                 start = (int(obj['bbox']["left"]), int(obj['bbox']["top"]))
                 end = (int(obj['bbox']["left"] + obj['bbox']["width"]),
                        int(obj['bbox']["top"] + obj['bbox']["height"]))
@@ -129,47 +129,23 @@ class App:
 
         if event == cv2.EVENT_LBUTTONUP:
             for id in ids:
-                newId = input('{} ->'.format(id))
-
-
-        # elif event == cv2.EVENT_LBUTTONUP:
-        #     if not self.drawingRect:
-        #         return 0  # if person stops drawing clicking R button, but then releases L button
-        #     flag = True
-        #
-        #     pTL = (min(self.drawingRect[0][0], self.drawingRect[1][0]),
-        #            min(self.drawingRect[0][1], self.drawingRect[1][1]))
-        #
-        #     pBR = (max(self.drawingRect[0][0], self.drawingRect[1][0]),
-        #            max(self.drawingRect[0][1], self.drawingRect[1][1]))
-        #     self.drawingRect = None
-        #     # Set the roiRect or reset it
-        #     if pTL != pBR:
-        #         # Adjust to X px padding
-        #         pxBlock = 8
-        #         dx = (pBR[0] - pTL[0]) % pxBlock
-        #         if dx:
-        #             dx = pxBlock - dx
-        #         dy = (pBR[1] - pTL[1]) % pxBlock
-        #         if dy:
-        #             dy = pxBlock - dy
-        #         self.roiRect.append((pTL, (pBR[0] + dx, pBR[1] + dy)))
-        #     else:
-        #         self.roiRect = self.roiRect[:-1]
-        #
-        # if event == cv2.EVENT_RBUTTONUP:
-        #     """
-        #     Delete drawn ROI by clicking inside it's area from the parent and child window
-        #     """
-        #     if self.drawingRect:
-        #         self.drawingRect = None
-        #     else:
-        #         for i, ((x1, y1), (x2, y2)) in enumerate(self.roiRect):
-        #             row = self.rowFrames[i]
-        #             if x1 <= x <= x2 and y1 <= y <= y2 and int(
-        #                     row.winfo_children()[-3].get()) <= self.trackerPos <= int(row.winfo_children()[-1].get()):
-        #                 self.roiRect.remove(((x1, y1), (x2, y2)))
-        #                 self.rowFrames.pop(i).destroy()
+                letter = findall(r'\D+', id)[0]
+                newId = input('{} -> {}'.format(id, letter))
+                try:
+                    newId = int(newId)
+                    newId = letter + str(newId)
+                    changed = dict()
+                    for i, obj in enumerate(self.file[self.trackerPos + 1]['objects']):
+                        if obj['id'] == id:
+                            changed['old'] = i
+                        elif obj['id'] == newId:
+                            changed['new'] = i
+                    self.file[self.trackerPos + 1]['objects'][changed['old']]['id'],\
+                    self.file[self.trackerPos + 1]['objects'][changed['new']]['id'] = newId, id
+                except ValueError:
+                    pass
+                except KeyError:
+                    self.file[self.trackerPos + 1]['objects'][changed['old']]['id'] = newId
 
         if event == cv2.EVENT_MOUSEMOVE:
             self.drawRoi(ids)
@@ -186,7 +162,7 @@ class App:
             cv2.putText(img[i], str(self.trackerPos + i), (0, 35),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 0, 0), 4)
 
-            for obj in self.file1[self.trackerPos + i]['objects']:
+            for obj in self.file[self.trackerPos + i]['objects']:
                 rt = max(1, int(self.w / self.w0) + 1)
                 style = True if obj['id'] in ids else False
                 img[i] = visualize_bbox(img[i], obj, thickness=rt, style=style)
@@ -207,6 +183,7 @@ class App:
         self.trackerPos = val
         self.vid.set(cv2.CAP_PROP_POS_FRAMES, int(val))
         _, self.fframe = self.vid.read()
+        _, self.nframe = self.vid.read()
         self.drawRoi()
 
 
@@ -224,7 +201,7 @@ if __name__ == '__main__':
     opt = parser.parse_args(
                             "-v /home/valia/AntVideos/Cflo_troph_count_7-02_7-09.mp4 -f1 "
                             "/home/valia/AntVideos/Cflo_troph_count_masked_6-00_6-31_MAL_withId.json "
-                            "-vertical True".split())
+                            "-horizontal True".split())
     w, h = opt.wsize.split('x')
     flag = True if opt.horizontal else False
     App(opt.video, opt.filepath1, None, flag, int(w), int(h))
