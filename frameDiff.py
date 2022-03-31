@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-:Description: GUI to create ROI's and mask the video.
+:Description: GUI for validation and editing of automatic adjustment of object ID on successive frames.
 
 :Author: (c) Valentyna Pryhodiuk <vpryhodiuk@lumais.com>
-:Date: 2021-11-21
+:Date: 2022-03-25
 """
 import cv2
 import os
@@ -22,7 +22,7 @@ def visualize_bbox(image: np.ndarray, tool, style=False, thickness: int = 2) -> 
     Args:
         image (np.ndarray): image to draw a bounding box onto
         tool (Dict[str,any]): Dict response from the export
-        style (str): False if rectangle without dashes have to be drawn
+        style (str): False if rectangle should be without bold boundaries
     Returns:
         image with a bounding box drawn on it.
     """
@@ -31,33 +31,31 @@ def visualize_bbox(image: np.ndarray, tool, style=False, thickness: int = 2) -> 
            int(tool['bbox']["top"] + tool['bbox']["height"]))
     h = tool['color'].lstrip('#')
     color = tuple(int(h[i:i + 2], 16) for i in (4, 2, 0))  # BGR
-    if not style:
-        cv2.rectangle(image, start, end, color, thickness)
-        cv2.putText(image, tool['id'], (start[0], start[1]-3),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 1)
+
+    k = 1 if not style else 2
+    cv2.rectangle(image, start, end, color, thickness*k)
+
+    if tool['id'][:2] != "ah" and tool['id'][0] == "a":
+        cv2.putText(image, tool['id'], (start[0], end[1]),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 1*k)
     else:
-        cv2.rectangle(image, start, end, color, round(thickness*1.5))
         cv2.putText(image, tool['id'], (start[0], start[1] - 3),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 1 * k)
 
     return image
 
 
 class App:
-    def __init__(self, video, filepath1, filepath2=None, horizontal=True, w0=1880, h0=1021):
-        # ------------------Drawing frames block------------------
-        with open(filepath1, 'r') as f:
+    def __init__(self, video, filepath, horizontal=True, w0=1880, h0=1021):
+
+        with open(filepath, 'r') as f:
             self.file = json.load(f)
 
-        # with open(filepath1.rstrip('json') + 'improved.json', 'w') as f:
-        #     self.file2 = json.load(f)
-
         self.horizontal = horizontal
-
-        # ----------------OpenCV GUI block-----------------------
         self.w0, self.h0 = w0, h0
         self.vidpath = video
         self.vid = cv2.VideoCapture(video)
+        # left (first frame) and right frame (next frame) respectively
         _, self.fframe = self.vid.read()
         _, self.nframe = self.vid.read()
         self.h, self.w = self.fframe.shape[:2]
@@ -92,15 +90,27 @@ class App:
                            # -2 because we start from 0 and we show 2 frames at one time
                            self.trackbar)
         cv2.setMouseCallback(self.windowName, self.react)
-        key = cv2.waitKey(0)
-        # Quit: escape, e or q
-        if key in (27, ord('e'), ord('q')):
-            with open('improved.json', 'w') as f:
-                json.dump(self.file, f)
-            cv2.destroyAllWindows()
+        print('-- To choose the object and to change it featureId just click inside it \n'
+              '-- If you want to change the featureId of the nested object click inside it either \n'
+              '-- Input new number to change the featureId of current object.  \n'
+              '-- To cancel featureId changing press Enter \n'
+              '-- To switch to the previous frame press P \n'
+              '-- To switch to the next frame press N')
+        while(1):
+            key = cv2.waitKey(1)
+            # Quit: escape or q
+            if key in (27, ord('q')):
+                with open('improved.json', 'w') as f:
+                    json.dump(self.file, f)
+                cv2.destroyAllWindows()
+                break
+            elif key == ord('n') and self.trackerPos < int(self.vid.get(cv2.CAP_PROP_FRAME_COUNT)) - 3:
+                self.trackbar(self.trackerPos + 1)
+            elif key == ord('p') and self.trackerPos > 0:
+                self.trackbar(self.trackerPos - 1)
 
     def react(self, event, x, y, flags, params):
-        """Mouse callback to set ROI
+        """Mouse callback to choose ROIs to correct their Id's
 
         event  - mouse event
         x: int  - x coordinate
@@ -134,18 +144,22 @@ class App:
                 try:
                     newId = int(newId)
                     newId = letter + str(newId)
-                    changed = dict()
-                    for i, obj in enumerate(self.file[self.trackerPos + 1]['objects']):
-                        if obj['id'] == id:
-                            changed['old'] = i
-                        elif obj['id'] == newId:
-                            changed['new'] = i
-                    self.file[self.trackerPos + 1]['objects'][changed['old']]['id'],\
-                    self.file[self.trackerPos + 1]['objects'][changed['new']]['id'] = newId, id
-                except ValueError:
-                    pass
-                except KeyError:
-                    self.file[self.trackerPos + 1]['objects'][changed['old']]['id'] = newId
+                    for j in range(self.trackerPos + 1, int(self.vid.get(cv2.CAP_PROP_FRAME_COUNT))):
+                        changed = {'old': -1,
+                                   'new': -1}
+                        for i, obj in enumerate(self.file[self.trackerPos + 1]['objects']):
+                            if obj['id'] == id:
+                                changed['old'] = i
+                            elif obj['id'] == newId:
+                                changed['new'] = i
+                        if changed['old'] != -1:
+                            if changed['new'] != -1:
+                                self.file[j]['objects'][changed['old']]['id'],\
+                                self.file[j]['objects'][changed['new']]['id'] = newId, id
+                            else:
+                                self.file[j]['objects'][changed['old']]['id'] = newId
+
+                except ValueError: pass
 
         if event == cv2.EVENT_MOUSEMOVE:
             self.drawRoi(ids)
@@ -153,8 +167,9 @@ class App:
 
     def drawRoi(self, ids=[]):
         """
-        Draws the set ROI and calls tkWidget function to change info in the child box
-        flag (bool): helping tool to understand if it is necessary to add drawn ROIs to the child box
+        Draws the set ROIs with their Id's
+        Args:
+            ids (list): carries Id's which should be highlighted with bold boundaries
         """
         img = [self.fframe.copy(), self.nframe.copy()]
 
@@ -191,14 +206,15 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='Document Taxonomy Builder.',
                             formatter_class=ArgumentDefaultsHelpFormatter,
                             conflict_handler='resolve')
-    parser.add_argument('-v', '--video', type=str, help='path to video')
-    parser.add_argument('-f1', '--filepath1', type=str, help='path to the MAL annotations')
+    parser.add_argument('-vid', '--video', type=str, help='path to video', required=True)
+    parser.add_argument('-a', '--annotations', type=str, help='path to the MAL annotations', required=True)
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-horizontal', type =bool, help="type of images' stack")
-    group.add_argument('-vertical', type =bool, help="type of images' stack")
+    group.add_argument('-hor', '--horizontal', type=bool, help="type of images' stack")
+    group.add_argument('-ver', '--vertical', type=bool, help="type of images' stack")
 
     parser.add_argument('-wsize', type=str, default="1600x1200", help='Your screen parameters WxH')
     opt = parser.parse_args()
     w, h = opt.wsize.split('x')
     flag = True if opt.horizontal else False
-    App(opt.video, opt.filepath1, None, flag, int(w), int(h))
+    flag = True if not opt.horizontal and not opt.vertical else flag
+    App(opt.video, opt.annotations, flag, int(w), int(h))
