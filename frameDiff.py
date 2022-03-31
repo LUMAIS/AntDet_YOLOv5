@@ -172,13 +172,13 @@ class App:
             ids (list): carries Id's which should be highlighted with bold boundaries
         """
         img = [self.fframe.copy(), self.nframe.copy()]
+        rt = max(1, int(self.w / self.w0) + 1)
 
         for i in [0, 1]:
             cv2.putText(img[i], str(self.trackerPos + i), (0, 35),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 0, 0), 4)
 
             for obj in self.file[self.trackerPos + i]['objects']:
-                rt = max(1, int(self.w / self.w0) + 1)
                 style = True if obj['id'] in ids else False
                 img[i] = visualize_bbox(img[i], obj, thickness=rt, style=style)
 
@@ -186,9 +186,42 @@ class App:
             img = np.hstack(img)
         else:
             img = np.vstack(img)
+        for p_obj in self.file[self.trackerPos]['objects']:
+            for n_obj in self.file[self.trackerPos + 1]['objects']:
+                if p_obj['id'] == n_obj['id']:
+                    style = True if p_obj['id'] in ids else False
+                    img = self.visualize_line(img, p_obj, n_obj, thickness=rt, style=style)
 
         cv2.imshow(self.windowName, img)
 
+    def visualize_line(self, image: np.ndarray, p_obj, n_obj, style=False, thickness: int = 2) -> np.ndarray:
+        """
+        Draws a bounding box on an image
+
+        Args:
+            image (np.ndarray): image to draw a bounding box onto
+            tool (Dict[str,any]): Dict response from the export
+            style (str): False if rectangle should be without bold boundaries
+        Returns:
+            image with a bounding box drawn on it.
+        """
+        h, w = self.fframe.shape[:2]
+        start = (int(p_obj['bbox']["left"] + p_obj['bbox']["width"] / 2),
+                 int(p_obj['bbox']["top"] + p_obj['bbox']["height"] / 2))
+        if self.horizontal:
+            end = (int(n_obj['bbox']["left"] + n_obj['bbox']["width"] / 2 + w),
+                   int(n_obj['bbox']["top"] + n_obj['bbox']["height"] / 2))
+        else:
+            end = (int(n_obj['bbox']["left"] + n_obj['bbox']["width"] / 2),
+                   int(n_obj['bbox']["top"] + n_obj['bbox']["height"] / 2 + h))
+
+        h = p_obj['color'].lstrip('#')
+        color = tuple(int(h[i:i + 2], 16) for i in (4, 2, 0))  # BGR
+
+        k = 1 if not style else 2
+        cv2.line(image, start, end, color=color, thickness=thickness * k)
+
+        return image
 
     def trackbar(self, val):
         """
