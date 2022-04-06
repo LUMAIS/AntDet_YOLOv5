@@ -12,17 +12,18 @@ import json
 import numpy as np
 
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from visAnnotDiff import dashrect
 from re import findall
 
 
-def visualize_bbox(image: np.ndarray, tool, style=False, thickness: int = 2) -> np.ndarray:
+def visualize_bbox(image: np.ndarray, tool, bold=False, dashed=False, thickness: int = 2) -> np.ndarray:
     """
     Draws a bounding box on an image
 
     Args:
         image (np.ndarray): image to draw a bounding box onto
         tool (Dict[str,any]): Dict response from the export
-        style (str): False if rectangle should be without bold boundaries
+        bold (str): False if rectangle should be without bold boundaries
     Returns:
         image with a bounding box drawn on it.
     """
@@ -32,8 +33,11 @@ def visualize_bbox(image: np.ndarray, tool, style=False, thickness: int = 2) -> 
     h = tool['color'].lstrip('#')
     color = tuple(int(h[i:i + 2], 16) for i in (4, 2, 0))  # BGR
 
-    k = 1 if not style else 2
-    cv2.rectangle(image, start, end, color, thickness*k)
+    k = 1 if not bold else 2
+    if not dashed:
+        cv2.rectangle(image, start, end, color, thickness*k)
+    else:
+        dashrect(image, start, end, color, thickness, 'dashed')
 
     if tool['id'][:2] != "ah" and tool['id'][0] == "a":
         cv2.putText(image, tool['id'], (start[0], end[1]),
@@ -52,12 +56,14 @@ class App:
             self.file = json.load(f)
 
         self.horizontal = horizontal
-        self.w0, self.h0 = w0, h0
+        self.w0 = w0
         self.vidpath = video
         self.vid = cv2.VideoCapture(video)
         # left (first frame) and right frame (next frame) respectively
         _, self.fframe = self.vid.read()
         _, self.nframe = self.vid.read()
+        self.notClear = []
+        self.mode = '1'
         self.h, self.w = self.fframe.shape[:2]
         self.windowName = 'image'
         self.trTitle = 'tracker'
@@ -74,15 +80,14 @@ class App:
         + calls drawROI
         """
         cv2.namedWindow(self.windowName, cv2.WINDOW_NORMAL)
-        h, w = self.fframe.shape[:2]
 
         k = 2 if self.horizontal else 1/2
 
         # dummy resizing in context of smart scaling. But is still dummy
-        if h / h0 > k * w / w0:
-            cv2.resizeWindow(self.windowName, int(k * w * h0 / h), h0)
+        if self.h / h0 > k * self.w / w0:
+            cv2.resizeWindow(self.windowName, int(k * self.w * h0 / self.h), h0)
         else:
-            cv2.resizeWindow(self.windowName, self.w0, int(h * w0 / w / k))
+            cv2.resizeWindow(self.windowName, w0, int(self.h * w0 / self.w / k))
 
         self.drawRoi()
         cv2.createTrackbar(self.trTitle, self.windowName, 0,
@@ -95,7 +100,8 @@ class App:
               '-- Input new number to change the featureId of current object.  \n'
               '-- To cancel featureId changing press Enter \n'
               '-- To switch to the previous frame press P \n'
-              '-- To switch to the next frame press N')
+              '-- To switch to the next frame press N \n'
+              '-- To switch the mode of linking lines press 1-3\n')
         while(1):
             key = cv2.waitKey(1)
             # Quit: escape or q
@@ -108,6 +114,10 @@ class App:
                 self.trackbar(self.trackerPos + 1)
             elif key == ord('p') and self.trackerPos > 0:
                 self.trackbar(self.trackerPos - 1)
+            elif key in (ord('1'), ord('2'), ord('3')):
+                self.mode = chr(key)
+                print('You have switched the line drawing mode to', self.mode)
+
 
     def react(self, event, x, y, flags, params):
         """Mouse callback to choose ROIs to correct their Id's
@@ -179,46 +189,54 @@ class App:
                         cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 0, 0), 4)
 
             for obj in self.file[self.trackerPos + i]['objects']:
-                style = True if obj['id'] in ids else False
-                img[i] = visualize_bbox(img[i], obj, thickness=rt, style=style)
+                bold = True if obj['id'] in ids else False
+                img[i] = visualize_bbox(img[i], obj, thickness=rt, bold=bold)
 
         if self.horizontal:
             img = np.hstack(img)
         else:
             img = np.vstack(img)
-        for p_obj in self.file[self.trackerPos]['objects']:
-            for n_obj in self.file[self.trackerPos + 1]['objects']:
-                if p_obj['id'] == n_obj['id']:
-                    style = True if p_obj['id'] in ids else False
-                    img = self.visualize_line(img, p_obj, n_obj, thickness=rt, style=style)
+        if self.mode in ('2', '1'):
+            for p_obj in self.file[self.trackerPos]['objects']:
+                for n_obj in self.file[self.trackerPos + 1]['objects']:
+                    if p_obj['id'] == n_obj['id']:
+                        bold = True if p_obj['id'] in ids else False
+                        # change after new script is ready
+                        dashed = True if p_obj['id'] in self.notClear else False
+                        if self.mode == '2' and bold:
+                            img = self.visualize_line(img, p_obj, n_obj, thickness=rt, bold=bold)
+                            cv2.imshow(self.windowName, img)
+                            return 0
+                        elif self.mode == '1':
+                            img = self.visualize_line(img, p_obj, n_obj, thickness=rt, bold=bold)
 
         cv2.imshow(self.windowName, img)
 
-    def visualize_line(self, image: np.ndarray, p_obj, n_obj, style=False, thickness: int = 2) -> np.ndarray:
+    def visualize_line(self, image: np.ndarray, p_obj, n_obj, bold=False, thickness: int = 2) -> np.ndarray:
         """
         Draws a bounding box on an image
 
         Args:
             image (np.ndarray): image to draw a bounding box onto
             tool (Dict[str,any]): Dict response from the export
-            style (str): False if rectangle should be without bold boundaries
+            bold (str): False if rectangle should be without bold boundaries
         Returns:
             image with a bounding box drawn on it.
         """
-        h, w = self.fframe.shape[:2]
+
         start = (int(p_obj['bbox']["left"] + p_obj['bbox']["width"] / 2),
                  int(p_obj['bbox']["top"] + p_obj['bbox']["height"] / 2))
         if self.horizontal:
-            end = (int(n_obj['bbox']["left"] + n_obj['bbox']["width"] / 2 + w),
+            end = (int(n_obj['bbox']["left"] + n_obj['bbox']["width"] / 2 + self.w),
                    int(n_obj['bbox']["top"] + n_obj['bbox']["height"] / 2))
         else:
             end = (int(n_obj['bbox']["left"] + n_obj['bbox']["width"] / 2),
-                   int(n_obj['bbox']["top"] + n_obj['bbox']["height"] / 2 + h))
+                   int(n_obj['bbox']["top"] + n_obj['bbox']["height"] / 2 + self.h))
 
         h = p_obj['color'].lstrip('#')
         color = tuple(int(h[i:i + 2], 16) for i in (4, 2, 0))  # BGR
 
-        k = 1 if not style else 2
+        k = 1 if not bold else 2
         cv2.line(image, start, end, color=color, thickness=thickness * k)
 
         return image
