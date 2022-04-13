@@ -260,14 +260,21 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='Document Taxonomy Builder.',
                             formatter_class=ArgumentDefaultsHelpFormatter,
                             conflict_handler='resolve')
-    parser.add_argument('-vid', '--video', type=str, help='path to video', required=True)
-    parser.add_argument('-a', '--annotations', type=str, help='path to the MAL annotations', required=True)
+    parser.add_argument('-vid', '--video', default='test-parameters/Cflo_troph_count_masked_6-00_6-31.mp4',
+                        type=str, help='path to video')
+    parser.add_argument('-a', '--annotations', default='test-parameters/Cflo_troph_count_masked_6-00_6-31_MAL_withId.json',
+                        type=str, help='path to the MAL annotations')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-hor', '--horizontal', type=bool, help="type of images' stack")
     group.add_argument('-ver', '--vertical', type=bool, help="type of images' stack")
 
     parser.add_argument('-wsize', type=str, default="1600x1200", help='Your screen parameters WxH')
+    parser.print_help()
+    print()
     opt = parser.parse_args()
+    # using test-parameters
+    # opt = parser.parse_args("-vid test-parameters/Cflo_troph_count_masked_6-00_6-31.mp4 "
+    #                         "-a test-parameters/Cflo_troph_count_masked_6-00_6-31_MAL_withId.json ".split())
     w, h = opt.wsize.split('x')
     flag = True if opt.horizontal else False
     flag = True if not opt.horizontal and not opt.vertical else flag
