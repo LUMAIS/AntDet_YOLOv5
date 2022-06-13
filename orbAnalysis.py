@@ -7,7 +7,6 @@
 :Date: 2022-03-25
 """
 import cv2
-import os
 import json
 import numpy as np
 
@@ -273,20 +272,21 @@ class App:
 
         # ----------------------- lines due to features --------------------------
         if self.mode in ('2', '1'):
+            # obj_in_area = 0
             for p_obj in self.file[self.trackerPos]['objects']:
                 mid = (int(p_obj['bbox']["left"] + p_obj['bbox']["width"] / 2),
                        int(p_obj['bbox']["top"] + p_obj['bbox']["height"] / 2))
-                if x1 < mid[0] < x2 and y1 < mid[1] < y2:
 
+                if x1 < mid[0] < x2 and y1 < mid[1] < y2:
                     for n_obj in self.file[self.trackerPos + 1]['objects']:
                         if p_obj['id'] == n_obj['id']:
                             bold = True if p_obj['id'] in ids else False
-                            if self.mode == '2' and bold:
+                            if (self.mode == '2' and bold) or self.mode == '1':
+                                # obj_in_area += 1 if self.mode == '2' and bold else 0
                                 img = self.visualize_line(img, p_obj, n_obj, thickness=rt, bold=bold)
-                                cv2.imshow(self.windowName, img)
-                                return 0
-                            elif self.mode == '1':
-                                img = self.visualize_line(img, p_obj, n_obj, thickness=rt, bold=bold)
+                                # if obj_in_area == 2:
+                                #     cv2.imshow(self.windowName, img)
+                                #     return 0
 
         cv2.imshow(self.windowName, img)
 
@@ -348,8 +348,8 @@ if __name__ == '__main__':
     print()
     opt = parser.parse_args()
     # using test-parameters
-    # opt = parser.parse_args("-vid test-parameters/Cflo_troph_count_masked_6-00_6-31.mp4 "
-    #                         "-a test-parameters/Cflo_troph_count_masked_6-00_6-31_MAL_withId.json ".split())
+    # opt = parser.parse_args("-vid /home/valia/AntVideos/Cflo_troph_count_3-38_3-52.mp4 "
+    #                         "-a /home/valia/AntVideos/Cflo_troph_count_3-38_3-52_withId.json".split())
     w, h = opt.wsize.split('x')
     flag = True if opt.horizontal else False
     flag = True if not opt.horizontal and not opt.vertical else flag
