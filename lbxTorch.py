@@ -177,7 +177,7 @@ if __name__ == '__main__':
                         help='True if annotations should be counted')
 
     args = parser.parse_args()
-    #'-json-path /home/valia/Завантаження/3-artem.lutov.json -f 1-4 -k'.split())
+    #'-json-path /home/valia/Upload/3-USER.json -f 5-4 -k'.split())  # -f 1-4
 
     for filepath in args.filepath:
         with open(filepath) as jsonFile:
