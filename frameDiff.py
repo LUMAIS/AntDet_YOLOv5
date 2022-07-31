@@ -6,14 +6,14 @@
 :Author: (c) Valentyna Pryhodiuk <vpryhodiuk@lumais.com>
 :Date: 2022-03-25
 """
-import cv2
-import os
 import json
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from re import findall
+
+import cv2
 import numpy as np
 
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from visAnnotDiff import dashrect
-from re import findall
 
 
 def visualize_bbox(image: np.ndarray, tool, bold=False, dashed=False, thickness: int = 2) -> np.ndarray:
@@ -269,7 +269,7 @@ if __name__ == '__main__':
     group.add_argument('-ver', '--vertical', type=bool, help="type of images' stack")
 
     parser.add_argument('-wsize', type=str, default="1600x1200", help='Your screen parameters WxH')
-    parser.print_help()
+
     print()
     opt = parser.parse_args()
     # using test-parameters

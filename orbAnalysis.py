@@ -6,6 +6,8 @@
 :Author: (c) Valentyna Pryhodiuk <vpryhodiuk@lumais.com>
 :Date: 2022-03-25
 """
+import os.path
+
 import cv2
 import json
 import numpy as np
@@ -29,9 +31,12 @@ def visualize_bbox(image: np.ndarray, tool, bold=False, dashed=False, thickness:
     start = (int(tool['bbox']["left"]), int(tool['bbox']["top"]))
     end = (int(tool['bbox']["left"] + tool['bbox']["width"]),
            int(tool['bbox']["top"] + tool['bbox']["height"]))
-    # h = tool['color'].lstrip('#')
-    # color = tuple(int(h[i:i + 2], 16) for i in (4, 2, 0))  # BGR
-    color = (0, 0, 1)
+
+    if 'color' in tool.keys():
+        h = tool['color'].lstrip('#')
+        color = tuple(int(h[i:i + 2], 16) for i in (4, 2, 0))  # BGR
+    else:
+        color = (0, 0, 1)
 
     k = 1 if not bold else 2
     if not dashed:
@@ -65,22 +70,24 @@ class App:
 
         # self.notClear = {'2': ['a2', 'ah5']}    # will be changed after another script will become completed
         self.notClear = {}
-        self.mode = '1'
+        self.linemode = '1'
         self.h, self.w = self.fframe.shape[:2]
         self.windowName = 'image'
         self.trTitle = 'tracker'
         self.trackerPos = 0
 
-        self.roi = None
-        self.pic = None
-        self.draw = False
+        self.lastevent = None
+        self.tochange = None
+        self.roi = None  # coordinates of the ROI
+        self.pic = None  # coordinates of the ROI
+        self.draw = False  # if True then GUI reacts to mouse movements
+        self.roimode = False  # if True then ROI can be drawn via mouse
         self.mask = np.zeros((self.h + self.h * (not self.horizontal),
-                              self.w + self.w * self.horizontal,
-                              3), dtype=np.uint8)
+                              self.w + self.w * self.horizontal, 3), dtype=np.uint8)
 
-        self.begin(w0, h0)
+        self.begin(filepath, w0, h0)
 
-    def begin(self, w0, h0):
+    def begin(self, filepath, w0, h0):
         """
         Starts
         + frame showing
@@ -117,19 +124,30 @@ class App:
             # Quit: escape or q
 
             if key in (27, ord('q')):
-                with open('improved.json', 'w') as f:
+                filename = filepath.rstrip('.json') + '_imp.json'
+                if os.path.exists(filename):
+                    i = 1
+                    while os.path.exists(
+                            filepath.rstrip('.json') + '_imp_{}.json'.format(i)):
+                        i += 1
+                    filename = filepath.rstrip('.json') + '_imp_{}.json'.format(i)
+
+                with open(filename, 'w') as f:
                     json.dump(self.file, f)
                 cv2.destroyAllWindows()
                 break
-            elif key == 255:
+            elif key == 255:  # Del
                 self.react(x=0, y=0, event=cv2.EVENT_RBUTTONUP)
             elif key == ord('n') and self.trackerPos < int(self.vid.get(cv2.CAP_PROP_FRAME_COUNT)) - 3:
                 self.trackbar(self.trackerPos + 1)
             elif key == ord('p') and self.trackerPos > 0:
                 self.trackbar(self.trackerPos - 1)
             elif key in (ord('1'), ord('2'), ord('3')):
-                self.mode = chr(key)
-                print('You have switched the line drawing mode to', self.mode)
+                self.linemode = chr(key)
+                print('You have switched the line drawing mode to', self.linemode)
+            elif key == ord('d'):
+                self.roimode = True
+                print('You have switched the to drawing ROI mode')
 
     def react(self, event, x, y, flags=None, params=None):
         """Mouse callback to choose ROIs to correct their Id's
@@ -142,6 +160,8 @@ class App:
         """
 
         ids = []
+        onmouse = ''
+
         if self.horizontal:
             k = 1 if x > self.w else 0
             for obj in self.file[self.trackerPos + k]['objects']:
@@ -149,7 +169,8 @@ class App:
                 end = (int(obj['bbox']["left"] + obj['bbox']["width"]),
                        int(obj['bbox']["top"] + obj['bbox']["height"]))
                 if start[0] < x - self.w * k < end[0] and start[1] < y < end[1]:
-                    ids.append(obj['featureId'])
+                    s = (np.array(start) - np.array(end))[0] * (np.array(start) - np.array(end))[1]
+                    ids.append([obj['featureId'], s])
         else:
             k = 1 if y > self.h else 0
             for obj in self.file[self.trackerPos + k]['objects']:
@@ -157,43 +178,58 @@ class App:
                 end = (int(obj['bbox']["left"] + obj['bbox']["width"]),
                        int(obj['bbox']["top"] + obj['bbox']["height"]))
                 if start[0] < x < end[0] and start[1] < y - self.h * k < end[1]:
-                    ids.append(obj['featureId'])
+                    s = (np.array(start) - np.array(end))[0] * (np.array(start) - np.array(end))[1]
+                    ids.append([obj['featureId'], s])
+        if ids:
+            def findmin(l):
+                res = None if not l else l[0]
+                for pair in l:
+                    if res[1] > pair[1]:
+                        res = pair.copy()
+                return res[0]
 
-        if event == cv2.EVENT_LBUTTONDOWN:
-            if not self.roi:
+            onmouse = findmin(ids)
+
+        if event == cv2.EVENT_LBUTTONDBLCLK:
+            print('hello')
+
+        elif event == cv2.EVENT_LBUTTONDOWN:
+            if not self.roi and self.roimode:
                 self.roi = [(x, y), (x, y)]
                 self.pic = [(x, y), (x, y)]
                 self.draw = True
 
-        if event == cv2.EVENT_LBUTTONUP and not self.draw:
-            for id in ids:
-                letter = findall(r'\D+', id)[0]
-                newId = input('{} -> {}'.format(id, letter))
-                try:
-                    newId = int(newId)
-                    newId = letter + str(newId)
+
+        elif event == cv2.EVENT_LBUTTONUP and not self.draw:
+            if not onmouse:
+                if (self.horizontal and x > self.w) or (not self.horizontal and y > self.h):
+                    self.tochange = None
+            else:
+                if self.tochange and ((self.horizontal and x < self.w) or (not self.horizontal and y < self.h)):
                     for j in range(self.trackerPos + 1, int(self.vid.get(cv2.CAP_PROP_FRAME_COUNT))):
-                        changed = {'old': -1,
-                                   'new': -1}
-                        for i, obj in enumerate(self.file[self.trackerPos + 1]['objects']):
-                            if obj['featureId'] == id:
-                                changed['old'] = i
-                            elif obj['featureId'] == newId:
-                                changed['new'] = i
-                        if changed['old'] != -1:
-                            if changed['new'] != -1:
-                                self.file[j]['objects'][changed['old']]['featureId'], \
-                                self.file[j]['objects'][changed['new']]['featureId'] = newId, id
+                        indexSwitch = {'old': -1,
+                                       'new': -1}
+                        for i, obj in enumerate(self.file[j]['objects']):
+                            if obj['featureId'] == self.tochange:
+                                indexSwitch['old'] = i
+                            elif obj['featureId'] == onmouse:
+                                indexSwitch['new'] = i
+                        if indexSwitch['old'] != -1:
+                            if indexSwitch['new'] != -1:
+                                self.file[j]['objects'][indexSwitch['old']]['featureId'], \
+                                self.file[j]['objects'][indexSwitch['new']]['featureId'] = onmouse, self.tochange
                             else:
-                                self.file[j]['objects'][changed['old']]['featureId'] = newId
+                                self.file[j]['objects'][indexSwitch['old']]['featureId'] = self.tochange
+                    # self.tochange = onmouse
+                else:
+                    self.tochange = onmouse
 
-                except ValueError:
-                    pass
-
-        elif event == cv2.EVENT_LBUTTONUP or (event == cv2.EVENT_MOUSEMOVE and self.draw):
+        elif (event == cv2.EVENT_LBUTTONUP and self.roimode) or (event == cv2.EVENT_MOUSEMOVE and self.draw):
 
             if event == cv2.EVENT_LBUTTONUP:
                 self.draw = False
+                self.roimode = False
+                print('Drawing ROI mode finished')
             else:
                 self.roi[1] = (x, y)
 
@@ -221,13 +257,14 @@ class App:
             self.draw = False
             self.mask *= 0
 
-        self.drawRoi(ids)
+        self.lastevent = event
+        self.drawRoi(onmouse)
 
-    def drawRoi(self, ids=[]):
+    def drawRoi(self, highlight=''):
         """
-        Draws the set ROIs with their Id's
+        Draws the set ROIs with their ids.
         Args:
-            ids (list): carries Id's which should be highlighted with bold boundaries
+            highlight (string): carries ids, which should be highlighted with bold boundaries
         """
         img = [self.fframe.copy(), self.nframe.copy()]
         rt = max(1, int(self.w / self.w0) + 1)
@@ -240,13 +277,13 @@ class App:
                         cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 0, 0), 4)
 
             for obj in self.file[self.trackerPos + i]['objects']:
-                bold = True if obj['featureId'] in ids else False
-                dashed = False
-                if i == 1:
-                    try:
-                        dashed = True if obj['featureId'] in self.notClear[str(self.trackerPos + 2)] else False
-                    except KeyError:
-                        pass
+                bold = True if obj['featureId'] == highlight else False
+                dashed = True if obj['featureId'] == self.tochange and i == 1 else False
+                # if i == 1:
+                #     try:
+                #         dashed = True if obj['featureId'] in self.notClear[str(self.trackerPos + 2)] else False
+                #     except KeyError:
+                #         pass
                 img[i] = visualize_bbox(img[i], obj, thickness=rt, bold=bold, dashed=dashed)
 
         if self.horizontal:
@@ -273,7 +310,7 @@ class App:
             img = cv2.bitwise_and(img, self.mask)
 
         # ----------------------- lines due to features --------------------------
-        if self.mode in ('2', '1'):
+        if self.linemode in ('2', '1'):
             # obj_in_area = 0
             for p_obj in self.file[self.trackerPos]['objects']:
                 mid = (int(p_obj['bbox']["left"] + p_obj['bbox']["width"] / 2),
@@ -282,8 +319,8 @@ class App:
                 if x1 < mid[0] < x2 and y1 < mid[1] < y2:
                     for n_obj in self.file[self.trackerPos + 1]['objects']:
                         if p_obj['featureId'] == n_obj['featureId']:
-                            bold = True if p_obj['featureId'] in ids else False
-                            if (self.mode == '2' and bold) or self.mode == '1':
+                            bold = True if p_obj['featureId'] == highlight else False
+                            if (self.linemode == '2' and bold) or self.linemode == '1':
                                 # obj_in_area += 1 if self.mode == '2' and bold else 0
                                 img = self.visualize_line(img, p_obj, n_obj, thickness=rt, bold=bold)
                                 # if obj_in_area == 2:
@@ -313,9 +350,11 @@ class App:
             end = (int(n_obj['bbox']["left"] + n_obj['bbox']["width"] / 2),
                    int(n_obj['bbox']["top"] + n_obj['bbox']["height"] / 2 + self.h))
 
-        # h = p_obj['color'].lstrip('#')
-        # color = tuple(int(h[i:i + 2], 16) for i in (4, 2, 0))  # BGR
-        color = (0, 0, 1)
+        if 'color' in p_obj.keys():
+            h = p_obj['color'].lstrip('#')
+            color = tuple(int(h[i:i + 2], 16) for i in (4, 2, 0))  # BGR
+        else:
+            color = (0, 0, 1)
 
         k = 1 if not bold else 2
         cv2.line(image, start, end, color=color, thickness=thickness * k)
@@ -340,20 +379,22 @@ if __name__ == '__main__':
                             conflict_handler='resolve')
     parser.add_argument('-vid', '--video', default='test-parameters/Cflo_troph_count_masked_6-00_6-31.mp4',
                         type=str, help='path to video')
-    parser.add_argument('-a', '--annotations', default='test-parameters/Cflo_troph_count_masked_6-00_6-31_MAL_withId.json',
+    parser.add_argument('-a', '--annotations',
+                        default='test-parameters/Cflo_troph_count_masked_6-00_6-31_MAL_withId.json',
                         type=str, help='path to the MAL annotations')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-hor', '--horizontal', type=bool, help="type of images' stack")
     group.add_argument('-ver', '--vertical', type=bool, help="type of images' stack")
 
     parser.add_argument('-wsize', type=str, default="1600x1200", help='Your screen parameters WxH')
-    parser.print_help()
+
     print()
     opt = parser.parse_args()
     # using test-parameters
     # opt = parser.parse_args("-vid /home/valia/AntVideos/Cflo_troph_count_3-38_3-52.mp4 "
-    #                         "-a /home/valia/Downloads/lo.json".split())
-                            # "-a /home/valia/AntVideos/Cflo_troph_count_3-38_3-52_withId.json".split())
+    #                         "-a /home/valia/Downloads/lo.json -ver true".split())
+    # "-a /home/valia/AntVideos/Cflo_troph_count_3-38_3-52_withId.json".split())
+
     w, h = opt.wsize.split('x')
     flag = True if opt.horizontal else False
     flag = True if not opt.horizontal and not opt.vertical else flag

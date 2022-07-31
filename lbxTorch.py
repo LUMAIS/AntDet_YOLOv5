@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-:Description: Evaluation and сonversion script for counting annotated objects on 1 label imported from Lablebox
+:Description: Evaluation and conversion script for counting annotated objects on 1 label imported from Labelbox
 and converting latter annotations into YOLOv5 format.
 
 :Authors: (c) Valentyna Pryhodiuk <vpryhodiuk@lumais.com>
@@ -19,17 +19,18 @@ class_name_to_id_mapping = {"ant": 0,
                             "trophallaxis-larva": 4,
                             "food-noise": 5,
                             "pupa": 6,
-                            "barcode": 7} #,"uncategorized": 8}
+                            "barcode": 7}  # ,"uncategorized": 8}
 # we delete uncategorized from possible classes to simplify the process of omitting them
 
 attributes = {'overlapping', 'blurry', "side-view", "low-confidence"}
 
-#convert string <n1>-<n2>, ... into list of beginnings and endings of the respective intervals
+
+# convert string <n1>-<n2>, ... into list of beginnings and endings of the respective intervals
 def strparse(fstr):
     framelst = fstr.split(',')
     for i, el in enumerate(framelst):
         framelst[i] = el.split('-')
-        framelst[i] = framelst[i]*2 if len(framelst[i]) == 1 else framelst[i]
+        framelst[i] = framelst[i] * 2 if len(framelst[i]) == 1 else framelst[i]
     return framelst
 
 
@@ -64,7 +65,7 @@ def convert_to_yolo(jsfile, img_size, fstr, filename, outdir):
                     if class_name_to_id_mapping.get(obj["title"]):
                         class_id = class_name_to_id_mapping[obj["title"]]
                         b = obj['bbox']
-                        flag = 1  #used to check if object has an attribute = low-confidence
+                        flag = 1  # used to check if object has an attribute = low-confidence
                         if obj['classifications']:
                             for cl in obj['classifications']:
                                 for answer in cl['answers']:
@@ -85,7 +86,8 @@ def convert_to_yolo(jsfile, img_size, fstr, filename, outdir):
 
                             # Write the bbox details to the file
                             print_buffer.append(
-                                "{} {:.3f} {:.3f} {:.3f} {:.3f}".format(class_id, b_center_x, b_center_y, b_width, b_height))
+                                "{} {:.3f} {:.3f} {:.3f} {:.3f}".format(class_id, b_center_x, b_center_y, b_width,
+                                                                        b_height))
                 # print("Invalid Class or uncategorized")
                 framenum = str(frame["frameNumber"])
                 # Save the annotation to disk
@@ -94,7 +96,7 @@ def convert_to_yolo(jsfile, img_size, fstr, filename, outdir):
             print("WARNING: Invalid frame's range. Number of edited frames is {}".format(len(jsfile)))
 
 
-#counts number of modified objects on frames, which were listed in the keyframes
+# counts number of modified objects on frames, which were listed in the keyframes
 def count_objects(jsfile, keyframes, obj_cost):
     """
     jsfile: list from loaded json file
@@ -103,14 +105,14 @@ def count_objects(jsfile, keyframes, obj_cost):
     :return: number of modified objects
     """
 
-    #return class if it was deleted to convert json to YOLO
+    # return class if it was deleted to convert json to YOLO
     if not class_name_to_id_mapping.get("uncategorized"):
         class_name_to_id_mapping["uncategorized"] = 8
     cls_count = {key: 0 for key in class_name_to_id_mapping}
     atr_count = {key: 0 for key in attributes}
     # pattern = r'\d+\-\d+,?|\d+'
 
-    #find all the intervals or just separated frame numbers
+    # find all the intervals or just separated frame numbers
     framelst = strparse(keyframes)
     suma = 0
     print_buffer = []
@@ -126,7 +128,7 @@ def count_objects(jsfile, keyframes, obj_cost):
 
             # For each obj in frame
             for obj in frame['objects']:
-                if obj['keyframe']: #true, if was changed
+                if obj['keyframe']:  # true, if was changed
                     if obj['title'] in cls_count:
                         cls_count[obj["title"]] += 1
                 if obj['classifications']:
@@ -147,7 +149,7 @@ def count_objects(jsfile, keyframes, obj_cost):
     if obj_cost:
         print("------------Total-------------")
         print("""Total by class: {} \nCost: ${} \nTotal by attribute: {}""".format(suma,
-                                                                                   suma*obj_cost,
+                                                                                   suma * obj_cost,
                                                                                    sum(list(atr_count.values()))))
     return suma
 
@@ -177,7 +179,7 @@ if __name__ == '__main__':
                         help='True if annotations should be counted')
 
     args = parser.parse_args()
-    #'-json-path /home/valia/Upload/3-USER.json -f 5-4 -k'.split())  # -f 1-4
+    # '-json-path /home/valia/Upload/3-USER.json -f 5-4 -k'.split())  # -f 1-4
 
     for filepath in args.filepath:
         with open(filepath) as jsonFile:
@@ -193,5 +195,5 @@ if __name__ == '__main__':
                 convert_to_yolo(annotations, fm_size, args.frames, filename, args.outp_dir)
 
             except AttributeError:
-                print("AttributeError: can't convert annotations, unspecified argument value -s [FRAME_SIZE]." +\
+                print("AttributeError: can't convert annotations, unspecified argument value -s [FRAME_SIZE]." + \
                       "\nTo count annotations in frame range specify -k [keyframed-objects] as True.")

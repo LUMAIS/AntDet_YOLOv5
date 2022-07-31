@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-:Description: converters between YOLO, Lablebox import and Labelbox export data formats.
+:Description: converters between YOLO, Labelbox import and Labelbox export data formats.
 
 :Author: (c) Valentyna Pryhodiuk <vpryhodiuk@lumais.com>
 :Date: 2022-07-06
