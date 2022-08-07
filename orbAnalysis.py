@@ -389,7 +389,7 @@ if __name__ == '__main__':
     parser.add_argument('-wsize', type=str, default="1600x1200", help='Your screen parameters WxH')
 
     print()
-    # opt = parser.parse_args()
+    opt = parser.parse_args()
     # using test-parameters
     # opt = parser.parse_args("-vid /home/valia/AntVideos/Cflo_troph_count_3-38_3-52.mp4 "
     #                         "-a /home/valia/Downloads/lo.json -ver".split())
