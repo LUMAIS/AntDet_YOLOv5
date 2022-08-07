@@ -383,16 +383,16 @@ if __name__ == '__main__':
                         default='test-parameters/Cflo_troph_count_masked_6-00_6-31_MAL_withId.json',
                         type=str, help='path to the MAL annotations')
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-hor', '--horizontal', type=bool, help="type of images' stack")
-    group.add_argument('-ver', '--vertical', type=bool, help="type of images' stack")
+    group.add_argument('-hor', '--horizontal', action="store_true",help="type of images' stack")
+    group.add_argument('-ver', '--vertical', action="store_true", help="type of images' stack")
 
     parser.add_argument('-wsize', type=str, default="1600x1200", help='Your screen parameters WxH')
 
     print()
-    opt = parser.parse_args()
+    # opt = parser.parse_args()
     # using test-parameters
     # opt = parser.parse_args("-vid /home/valia/AntVideos/Cflo_troph_count_3-38_3-52.mp4 "
-    #                         "-a /home/valia/Downloads/lo.json -ver true".split())
+    #                         "-a /home/valia/Downloads/lo.json -ver".split())
     # "-a /home/valia/AntVideos/Cflo_troph_count_3-38_3-52_withId.json".split())
 
     w, h = opt.wsize.split('x')
