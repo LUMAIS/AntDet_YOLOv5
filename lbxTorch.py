@@ -92,6 +92,7 @@ def convert_to_yolo(jsfile, img_size, fstr, filename, outdir):
                 framenum = str(frame["frameNumber"])
                 # Save the annotation to disk
                 print("\n".join(print_buffer), file=open('{}_{}.txt'.format(filename, framenum), "w"))
+            print('saved as {}/{}_<number>.txt'.format(outdir, filename))
         except IndexError:
             print("WARNING: Invalid frame's range. Number of edited frames is {}".format(len(jsfile)))
 
@@ -159,14 +160,14 @@ if __name__ == '__main__':
                             formatter_class=ArgumentDefaultsHelpFormatter,
                             conflict_handler='resolve')
     parser.add_argument('-json-path', '--filepath', nargs='+',
-                        help='Path for json files')
+                        help='Path for json files', required=True)
     # parser.add_argument('-vid', '--vid-path', default=None,
     #                     help='Path for the video')
 
     # create group with mutually exclusive elements: framesize and keyframe-obj
-    # group = parser.add_mutually_exclusive_group()
-    parser.add_argument('-s', '--frame-size', default=None, type=str,
-                        help='The size format is WxH, for example: 800x600')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-s', '--frame-size', default=None, type=str,
+                       help='The size format is WxH, for example: 800x600')
     parser.add_argument('-o', '--outp-dir', type=str,
                         default=os.path.join(os.getcwd(), 'labels'),
                         help='Output directory for the label files')
@@ -175,11 +176,11 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--frames', type=str, default='1-$',
                         help='Range of frames')
 
-    parser.add_argument('-k', '--keyframed-objects', action="store_true",
-                        help='True if annotations should be counted')
+    group.add_argument('-k', '--keyframed-objects', action="store_true",
+                       help='True if annotations should be counted')
 
     args = parser.parse_args()
-    # '-json-path /home/valia/Upload/3-USER.json -f 5-4 -k'.split())  # -f 1-4
+    # '-json-path /home/valia/AntVideos/Cflo_troph_count_masked_5-30_6-03-rand1.json -f 5-14 -k'.split())  # -f 1-4
 
     for filepath in args.filepath:
         with open(filepath) as jsonFile:
