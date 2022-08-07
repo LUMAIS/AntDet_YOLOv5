@@ -12,14 +12,14 @@ $ python3 -m pip -r install requirements.txt
 ```
 
 ## :crystal_ball: orbAnalysis
-### Descriprion
+### Description
 The script displays two successive consecutive frames, where annotated objects are surrounded by bounding boxes.
-Annotations should follow the [Labelbox style](https://docs.labelbox.com/reference/bounding-box)
+Annotations should follow the [Labelbox style](https://docs.labelbox.com/reference/bounding-box#export)
 for the video annotations exporting. To simplify the ID tracking, objects with same ID are connected with the lines.
 Possibilities of the script:
 #### 🔴 Connecting lines
 - Press `1` to turn on the mode where each line is visualised.
-Line and bbox gets highlighted if the user hover the mouse over the object.
+Line and bbox gets highlighted if the user hovers the mouse over the object.
 - Press `2` to turn on the mode where only hovered objects have their lines displayed and highlighted.
 - Press `3` to stop displaying the connecting lines.
 #### 🟠 Feature IDs
@@ -38,7 +38,7 @@ Script allows to draw/display not more than one ROI.
 2. To draw ROI press `LB` on the mouse and drag the cursor until you are satisfied
 with the result.
    1. Drawing mode turns off automatically after the ROI is drawn.
-   2. To clear the ROI press `RB` or `Del` for Linus users.
+   2. To clear the ROI press `RB` or `Del` for Linux users.
    3. To draw another ROI clear it using previous list item ⬆️ and
    repeat everything listed above in this section. 
 
@@ -49,7 +49,7 @@ with the result.
 #### 🔵 Finish & Save
  Press `q` or `Esc` to finish and to save the progress as a \<filename>_imp.json 
 ### Usage
-```sh
+```commandline
 $ ./orbAnalysis.py -h
 
 usage: orbAnalysis.py [-h] [-vid VIDEO] [-a ANNOTATIONS]
@@ -82,6 +82,96 @@ To run the code on <annotation.json> on <video.mp4> and stick it vertically.
 ```
 ## 🛡️ lbxTorch
 
-### Description
+### Description and Usage
 Evaluation and conversion script for counting annotated objects on one label imported from Labelbox
 and converting latter annotations into YOLOv5 format.
+
+```commandline
+$ ./lbxTorch.py -h
+
+usage: lbxTorch.py [-h] -json-path FILEPATH [FILEPATH ...] [-s FRAME_SIZE] [-o OUTP_DIR] [-f FRAMES] [-k]
+
+Document Taxonomy Builder.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -json-path FILEPATH [FILEPATH ...], --filepath FILEPATH [FILEPATH ...]
+                        Path for json files (default: None)
+  -s FRAME_SIZE, --frame-size FRAME_SIZE
+                        The size format is WxH, for example: 800x600 (default: None)
+  -o OUTP_DIR, --outp-dir OUTP_DIR
+                        Output directory for the label files (default: /home/valia/PycharmProjects/AntDet_YOLOv5/labels)
+  -f FRAMES, --frames FRAMES
+                        Range of frames (default: 1-$)
+  -k, --keyframed-objects
+                        True if annotations should be counted (default: False)
+
+```
+
+Script supports two different scenarios:
+#### :purple_circle: Converting the annotations from Labelbox format to YOLOv5 format
+Annotations in [Labelbox style](https://docs.labelbox.com/reference/bounding-box#export) for a video
+got converted into the [YOLOv5 style](https://blog.paperspace.com/train-yolov5-custom-data/).
+To use the script for this task  `-s, --frame-size` argument should be passed.
+```commandline
+./lbxTorch.py --json-path annotations.json -f 5-14 -s 800x600
+```
+#### :white_circle: Count the number of objects annotated by-hand
+Annotations in [Labelbox style](https://docs.labelbox.com/reference/bounding-box#export) for a video
+got counted if they were annotated by-hand. To use the script for this task `-k` argument should be passed.
+
+## :radioactive: validAnnotations.py
+
+### Description
+Validation script for correction of the by-hand video annotation exported from
+[Labelbox](https://docs.labelbox.com/reference/bounding-box#export) returns the
+Antlist object, which is a list with extra methods added and saved the `new.json`
+file with fixed annotations. Correction looks for flying heads (object was meant
+to be the ant's head, but user accidentally switched feature ids of two objects)
+to warn the user about their occurrence and cuts the ant's head if the borders
+of the head go beyond the borders of the body.
+
+### Usage
+```commandline
+./validAnnotations.py -h
+
+usage: validAnnotations.py [-h] -a ANNOTATIONS [-r ROI]
+
+Document Taxonomy Builder.
+
+required arguments:
+  -a ANNOTATIONS, --annotations ANNOTATIONS
+                        Path to an annotation file (default: None)
+optional arguments:
+  -h, --help            show this help message and exit
+  -r ROI, --roi ROI     Path to the ROI file (default: None)
+```
+## :diving_mask: videoMask.py
+
+### Description
+Masking the trophallaxis events for ant videos.
+
+### Usage
+```commandline
+./videoMask.py -h
+usage: videoMask.py [-h] -v VIDPATH -r ROIS [-f FILENAME] [-c COLOR | -rand]
+
+Document Taxonomy Builder.
+
+required arguments:
+  -v VIDPATH, --vidpath VIDPATH
+                        path to video (default: None)
+  -r ROIS, --rois ROIS  LEFT,TOP,WIDTH,HEIGHT[;SHAPE=rect][^FRAME_START=1][!FRAME_FINISH=LAST_FRAME]] (default: [])
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -f FILENAME, --filename FILENAME
+                        name for a processed video (default: None)
+  -c COLOR, --color COLOR
+                        color written as a word like pink, aqua, etc. (default: None)
+  -rand                 True if background needs to be randomly colored (default: False)
+
+```
+
+
+
