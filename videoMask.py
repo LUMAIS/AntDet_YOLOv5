@@ -121,9 +121,9 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='Document Taxonomy Builder.',
                             formatter_class=ArgumentDefaultsHelpFormatter,
                             conflict_handler='resolve')
-    parser.add_argument('-v', '--vidpath', type=str, help='path to video')
+    parser.add_argument('-v', '--vidpath', type=str, help='path to video', required=True)
 
-    parser.add_argument('-r', '--rois', type=str, default=[], action='append',
+    parser.add_argument('-r', '--rois', type=str, default=[], action='append', required=True,
                         help='LEFT,TOP,WIDTH,HEIGHT[;SHAPE=rect][^FRAME_START=1][!FRAME_FINISH=LAST_FRAME]]')
     parser.add_argument('-f', '--filename', type=str, help='name for a processed video')
 
