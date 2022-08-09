@@ -152,7 +152,7 @@ def count_objects(jsfile, keyframes, obj_cost):
         print("""Total by class: {} \nCost: ${} \nTotal by attribute: {}""".format(suma,
                                                                                    suma * obj_cost,
                                                                                    sum(list(atr_count.values()))))
-    return suma
+    return suma, sum(list(atr_count.values()))
 
 
 if __name__ == '__main__':
