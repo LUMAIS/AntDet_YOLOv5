@@ -67,6 +67,7 @@ def roi_processing(vidpath: str, rois: str, filename: str, rand: bool = False, s
     now = datetime.now()
     seed(now.hour+now.minute+now.second)
     np.random.seed(now.hour+now.minute+now.second)
+    print(rand, static)
 
     roi_list = []
     for roi in rois:
@@ -90,7 +91,7 @@ def roi_processing(vidpath: str, rois: str, filename: str, rand: bool = False, s
                 x1, y1, w, h = roi.xywh
 
                 if x1 > width or y1 > height:
-                    raise UnboundLocalError("Process interrupted \nInvalidArgument: wrong coordinates of the roi")
+                    raise UnboundLocalError("Process interrupted \nInvalidArgument: wrong coordinates of the roi. Please, check the frame size.")
 
                 # change coordinates of the ROI's Right Bottom corner if it is out of boundaries
                 x2, y2 = min(w + x1, width), min(h + y1, height)
@@ -106,7 +107,7 @@ def roi_processing(vidpath: str, rois: str, filename: str, rand: bool = False, s
             im_frame = Image.fromarray(frame[:, :, ::-1])  # RGB
             if not static and rand:
                 bg = Image.fromarray(randint(0, 256, (height, width, 3)).astype(np.uint8))
-            elif not rand:
+            elif not static and not rand:
                 hcode = choice(list(mcd.CSS4_COLORS.values()))
                 bg = Image.new('RGB', (width, height), hcode)
             masked = Image.composite(im_frame, bg, mask)
@@ -121,16 +122,17 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='Document Taxonomy Builder.',
                             formatter_class=ArgumentDefaultsHelpFormatter,
                             conflict_handler='resolve')
-    parser.add_argument('-v', '--vidpath', type=str, help='path to video')
+    parser.add_argument('-v', '--vidpath', type=str, help='path to video', required=True)
 
-    parser.add_argument('-r', '--rois', type=str, default=[], action='append',
+    parser.add_argument('-r', '--rois', type=str, default=[], action='append', required=True,
                         help='LEFT,TOP,WIDTH,HEIGHT[;SHAPE=rect][^FRAME_START=1][!FRAME_FINISH=LAST_FRAME]]')
     parser.add_argument('-f', '--filename', type=str, help='name for a processed video')
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-c', '--color', type=str, help='color written as a word like pink, aqua, etc.')
     group.add_argument('-rand', action="store_true", help='True if background needs to be randomly colored')
-    opt = parser.parse_args() #"-v E:\\work\\11-23_11-34.mp4 -r 737,378,125,159 -f 11-11.mp4".split())
+    opt = parser.parse_args()
+    # "-v imgs/mixkit-leaves-wet.mp4 -r 500,300,800,600;ellipse^40 -rand -f imgs/mixkit-leaves-wet-with-roi.mp4".split())
     #1920x1061
     #^50(736, 411, 98, 164) to $
     # (793, 133, 164, 125) from 336 to 437

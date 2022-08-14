@@ -231,10 +231,10 @@ def main(annotated: str, reviewed: str, video: str, scale: float = 2, vidreview:
                 cv2.resizeWindow(wTitle, int(w / scale), int(h / scale))
                 cv2.imshow(wTitle, img)
                 key = 0
-                while key != 32:  # space
+                while key != 32 and key != 27:  # space
                     key = cv2.waitKey(1) & 0xFF  # esc
                     if key == 27:
-                        return 0
+                        video = ''
                 cv2.destroyAllWindows()
 
             if video:
@@ -251,8 +251,8 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='Document Taxonomy Builder.',
                             formatter_class=ArgumentDefaultsHelpFormatter,
                             conflict_handler='resolve')
-    parser.add_argument('-a', '--annotated', type=str, help='Path to the JSON file of original annotations')
-    parser.add_argument('-r', '--reviewed', type=str, help='Path to the JSON file of reviewed annotations')
+    parser.add_argument('-a', '--annotated', type=str, help='Path to the JSON file of original annotations', required=True)
+    parser.add_argument('-r', '--reviewed', type=str, help='Path to the JSON file of reviewed annotations', required=True)
 
     parser.add_argument('-v', '--video', type=str, default='', help='Path to the original video')
     parser.add_argument('-o', '--output-video', dest='vidreview', type=str,
@@ -261,10 +261,13 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--epsilon', type=float, default=0,
                         help='The maximum permissible error of the bbox dimension')
     opt = parser.parse_args()
-    # '-a original_3-38_3-52.json -r review_3-38_3-52.json -k 1-35 -e 2 -v Cflo_troph_count_3-38_3-52.mp4 -o 1.mp4'.split())
+    # '-a original_3-38_3-52.json -r review_3-38_3-52.json -k 1-35 -e 2 -v Cflo_troph_count_3-38_3-52.mp4'.split())
+    # '-a ./imgs/leaf_original.json -r ./imgs/leaf_review.json -v ./imgs/mixkit-leaves-wet.mp4'.split())
     res = main(**vars(opt))
+
     print(
         (f"Corrected classes: {res[0]}\n"
          f"Corrected attributes: {res[1]}\n"
          f"Corrected classes in keyframes: {res[2]}\n"
          f"Corrected attributes in keyframes: {res[3]}").format(res))
+

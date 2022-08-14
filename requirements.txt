@@ -1,0 +1,7 @@
+numpy >= 1.20
+opencv-python >= 4.6
+argparse >= 1.4
+typing-extensions >= 4.3
+regex >= 1.2
+matplotlib >= 3.5
+Pillow >= 9
